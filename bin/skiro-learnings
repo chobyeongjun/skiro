@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+SKIRO_HOME="${SKIRO_HOME:-$HOME/.skiro}"
+LEARN_DIR="$SKIRO_HOME/learnings"
+mkdir -p "$LEARN_DIR"
+
+CMD="${1:-help}"
+shift || true
+
+case "$CMD" in
+  search)
+    KEYWORD="${1:-}"
+    [ -z "$KEYWORD" ] && echo "Usage: skiro-learnings search <keyword>" && exit 1
+    grep -ril "$KEYWORD" "$LEARN_DIR"/*.jsonl 2>/dev/null | while read -r f; do
+      grep -i "$KEYWORD" "$f" 2>/dev/null
+    done | sort -t'"' -k4 -r | head -10
+    ;;
+  add)
+    JSON="${1:-}"
+    [ -z "$JSON" ] && echo "Usage: skiro-learnings add '<json>'" && exit 1
+    TAG=$(echo "$JSON" | grep -o '"tags":\["[^"]*' | sed 's/"tags":\["//' | tr '[:upper:]' '[:lower:]')
+    [ -z "$TAG" ] && TAG="general"
+    FILE="$LEARN_DIR/$TAG.jsonl"
+    KEY=$(echo "$JSON" | grep -o '"key":"[^"]*' | sed 's/"key":"//')
+    if [ -n "$KEY" ] && [ -f "$FILE" ] && grep -q "\"key\":\"$KEY\"" "$FILE" 2>/dev/null; then
+      grep -v "\"key\":\"$KEY\"" "$FILE" > "$FILE.tmp" 2>/dev/null || true
+      mv "$FILE.tmp" "$FILE"
+      echo "Updated: $KEY"
+    fi
+    if ! echo "$JSON" | grep -q '"ts"'; then
+      JSON=$(echo "$JSON" | sed "s/^{/{\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",/")
+    fi
+    echo "$JSON" >> "$FILE"
+    echo "Saved to $FILE"
+    ;;
+  list)
+    for f in "$LEARN_DIR"/*.jsonl 2>/dev/null; do
+      [ -f "$f" ] || continue
+      echo "=== $(basename "$f" .jsonl) ==="
+      cat "$f"; echo ""
+    done
+    ;;
+  count)
+    TOTAL=0
+    for f in "$LEARN_DIR"/*.jsonl 2>/dev/null; do
+      [ -f "$f" ] || continue
+      C=$(wc -l < "$f" | tr -d ' ')
+      TOTAL=$((TOTAL + C))
+    done
+    echo "$TOTAL"
+    ;;
+  *) echo "skiro-learnings: search <keyword> | add <json> | list | count" ;;
+esac
