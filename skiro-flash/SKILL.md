@@ -53,3 +53,15 @@ git diff --name-only HEAD 2>/dev/null | grep -E '\.(ino|cpp|h|c)$|platformio\.in
 If firmware files were modified since last flash:
 → Display: "Firmware files changed since last build. Run /skiro-flash to verify."
 → Do NOT auto-build. Always wait for user confirmation.
+
+## Wrong Skill? Redirect
+If the user's request does not match this skill, DO NOT attempt it.
+Instead, explain what this skill does and redirect to the correct one:
+- Want to deploy to cloud/Docker/web? → "This skill is for MCU firmware only. Use your standard deployment tools."
+- Want to verify code safety? → "/skiro-safety audits limits, watchdog, e-stop, timing."
+- Want to test hardware? → "/skiro-hwtest generates and runs hardware test scripts."
+- Want to build a GUI? → "/skiro-gui handles desktop GUI development."
+- Want to analyze data? → "/skiro-analyze does RMSE, FFT, statistics."
+- Want to set up BLE/WiFi/Serial? → "/skiro-comm handles robot communication setup."
+- Want to plan an experiment? → "/skiro-plan handles experiment design and brainstorming."
+- Want to manage data files? → "/skiro-data handles data collection, validation, and format conversion."

@@ -189,3 +189,17 @@ Log analysis decisions as learnings (e.g., "Welch's t-test used because unequal 
 - Results look good → /skiro-retro for experiment retrospective
 - Need paper figures → refine with specific requests
 - 재분석 필요 → raw 파일 그대로, analysis/ 결과만 다시 생성
+
+## Wrong Skill? Redirect
+If the user's request does not match this skill, DO NOT attempt it.
+Instead, explain what this skill does and redirect to the correct one:
+- Want gait-specific analysis (GCP, heel strike, stride)? → "/skiro-gait extends this skill with gait cycle and temporal-spatial parameters."
+- Want to manage or convert data files? → "/skiro-data handles data collection, validation, and format conversion."
+- Want experiment retrospective? → "/skiro-retro summarizes results and generates paper packets."
+- Want to plan an experiment? → "/skiro-plan handles experiment design and brainstorming."
+- Want to build a GUI? → "/skiro-gui handles desktop GUI development."
+- Want to verify code safety? → "/skiro-safety audits limits, watchdog, e-stop, timing."
+- Want to flash firmware? → "/skiro-flash builds and uploads firmware to MCU."
+- Want to test hardware? → "/skiro-hwtest generates and runs hardware test scripts."
+- Want to set up BLE/WiFi/Serial? → "/skiro-comm handles robot communication setup."
+- Want to analyze business/stock/web data? → "This skill is for robot experiment data only. Use general analysis tools."

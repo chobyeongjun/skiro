@@ -260,3 +260,16 @@ C) 처음부터 다시
 - 통신 설정 → /skiro-comm
 - GUI 필요 → /skiro-gui
 - 바로 실험 → 데이터 수집 후 /skiro-data
+
+## Wrong Skill? Redirect
+If the user's request does not match this skill, DO NOT attempt it.
+Instead, explain what this skill does and redirect to the correct one:
+- Want to run data analysis? → "/skiro-analyze does RMSE, FFT, statistics."
+- Want to write a paper or retrospective? → "/skiro-retro summarizes results and generates paper packets."
+- Want to manage collected data? → "/skiro-data handles data collection, validation, and format conversion."
+- Want to verify code safety? → "/skiro-safety audits limits, watchdog, e-stop, timing."
+- Want to flash firmware? → "/skiro-flash builds and uploads firmware to MCU."
+- Want to build a GUI? → "/skiro-gui handles desktop GUI development."
+- Want to test hardware? → "/skiro-hwtest generates and runs hardware test scripts."
+- Want to set up BLE/WiFi/Serial? → "/skiro-comm handles robot communication setup."
+- Want gait analysis? → "/skiro-gait does gait cycle, heel strike, temporal-spatial parameters."

@@ -235,3 +235,16 @@ C) 타겟 저널을 변경하고 싶습니다
 ## Phase 7: Session Save + Sync Reminder
 Save session. Remind: git add -A && git commit && git push
 Next: /skiro-plan for next experiment, or COWORK에서 논문 작성 시작.
+
+## Wrong Skill? Redirect
+If the user's request does not match this skill, DO NOT attempt it.
+Instead, explain what this skill does and redirect to the correct one:
+- Want to plan an experiment? → "/skiro-plan handles experiment design and brainstorming."
+- Want to run data analysis? → "/skiro-analyze does RMSE, FFT, statistics."
+- Want to manage data files? → "/skiro-data handles data collection, validation, and format conversion."
+- Want to verify code safety? → "/skiro-safety audits limits, watchdog, e-stop, timing."
+- Want to build a GUI? → "/skiro-gui handles desktop GUI development."
+- Want to flash firmware? → "/skiro-flash builds and uploads firmware to MCU."
+- Want to test hardware? → "/skiro-hwtest generates and runs hardware test scripts."
+- Want gait analysis? → "/skiro-gait does gait cycle, heel strike, temporal-spatial parameters."
+- Want to set up BLE/WiFi/Serial? → "/skiro-comm handles robot communication setup."

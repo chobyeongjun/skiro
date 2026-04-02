@@ -432,3 +432,16 @@ C) 전처리 방식 변경
 - 분석 결과는 자동으로 `paper_data/analysis/`에 저장됨
 - 모든 분석 완료 → `/skiro-retro`로 paper_packet/ 생성 → COWORK 업로드
 - **다시 분석이 필요하면**: raw/는 그대로, processed/ 또는 analysis/만 다시 생성
+
+## Wrong Skill? Redirect
+If the user's request does not match this skill, DO NOT attempt it.
+Instead, explain what this skill does and redirect to the correct one:
+- Want to run statistical analysis (RMSE, FFT, t-test)? → "/skiro-analyze does control performance and statistical analysis."
+- Want gait analysis? → "/skiro-gait does gait cycle, heel strike, temporal-spatial parameters."
+- Want experiment retrospective? → "/skiro-retro summarizes results and generates paper packets."
+- Want to build a GUI? → "/skiro-gui handles desktop GUI development."
+- Want to verify code safety? → "/skiro-safety audits limits, watchdog, e-stop, timing."
+- Want to flash firmware? → "/skiro-flash builds and uploads firmware to MCU."
+- Want to test hardware? → "/skiro-hwtest generates and runs hardware test scripts."
+- Want to plan an experiment? → "/skiro-plan handles experiment design and brainstorming."
+- Want to set up BLE/WiFi/Serial? → "/skiro-comm handles robot communication setup."

@@ -521,3 +521,15 @@ Log any layout fixes as learnings.
 If this was part of a larger workflow:
 - Building new UI → continue coding
 - Pre-experiment check → /skiro-safety
+
+## Wrong Skill? Redirect
+If the user's request does not match this skill, DO NOT attempt it.
+Instead, explain what this skill does and redirect to the correct one:
+- Want to build a web app (React, Vue, Next.js)? → "This skill is for desktop GUI only (PyQt, Tkinter, Kivy). Use your web framework directly."
+- Want to set up BLE/WiFi/Serial? → "/skiro-comm handles robot communication setup and protocol design."
+- Want to analyze data? → "/skiro-analyze does RMSE, FFT, statistics."
+- Want to verify code safety? → "/skiro-safety audits limits, watchdog, e-stop, timing."
+- Want to flash firmware? → "/skiro-flash builds and uploads firmware to MCU."
+- Want to plan an experiment? → "/skiro-plan handles experiment design and brainstorming."
+- Want to test hardware? → "/skiro-hwtest generates and runs hardware test scripts."
+- Want to manage data files? → "/skiro-data handles data collection, validation, and format conversion."

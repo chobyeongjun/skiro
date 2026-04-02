@@ -138,3 +138,16 @@ FAIL items → log learning automatically via skiro-learnings add.
 ## Phase 5: Next Step
 All PASS → /skiro-safety then /skiro-flash
 FAIL → fix hardware, re-run /skiro-hwtest
+
+## Wrong Skill? Redirect
+If the user's request does not match this skill, DO NOT attempt it.
+Instead, explain what this skill does and redirect to the correct one:
+- Want to verify code safety? → "/skiro-safety audits limits, watchdog, e-stop, timing."
+- Want to build a GUI? → "/skiro-gui handles desktop GUI development."
+- Want to analyze data? → "/skiro-analyze does RMSE, FFT, statistics."
+- Want to flash firmware? → "/skiro-flash builds and uploads firmware to MCU."
+- Want to set up BLE/WiFi/Serial? → "/skiro-comm handles robot communication setup."
+- Want to plan an experiment? → "/skiro-plan handles experiment design and brainstorming."
+- Want to manage data files? → "/skiro-data handles data collection, validation, and format conversion."
+- Want gait analysis? → "/skiro-gait does gait cycle, heel strike, temporal-spatial parameters."
+- Want experiment retrospective? → "/skiro-retro summarizes results and generates paper packets."

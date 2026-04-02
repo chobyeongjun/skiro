@@ -31,6 +31,12 @@ When the user says something did not work, a bug occurred, or hardware behaved
 unexpectedly, ALWAYS log it. Before answering hardware-related questions,
 ALWAYS search learnings for relevant past issues.
 
+## Language
+Always respond in the user's language. Detect the language from their message
+and reply in the same language. Documentation is in English, but all user-facing
+responses (explanations, questions, error messages, redirects) must match the
+user's language.
+
 ## Hardware Respect
 Hardware is not software. You cannot undo a bad motor command. You cannot rollback
 a burned driver. Every command that touches actuators, power systems, or
