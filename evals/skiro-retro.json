@@ -1,0 +1,22 @@
+[
+  {"query": "오늘 실험 결과 정리하고 retrospective 작성해줘", "should_trigger": true},
+  {"query": "실험에서 뭐가 잘못됐는지 분석해줘", "should_trigger": true},
+  {"query": "lessons learned 정리해줘", "should_trigger": true},
+  {"query": "실험 결과를 논문 데이터 형식으로 정리해줘", "should_trigger": true},
+  {"query": "이번 실험 세션 요약해줘", "should_trigger": true},
+  {"query": "what went wrong 분석해줘", "should_trigger": true},
+  {"query": "실험 결과 paper data로 정리해줘", "should_trigger": true},
+  {"query": "retro 작성해줘, 이번 실험 문제점 위주로", "should_trigger": true},
+  {"query": "실험 교훈 정리해서 learnings에 저장해줘", "should_trigger": true},
+  {"query": "지난 실험 대비 개선점 분석해줘", "should_trigger": true},
+  {"query": "실험 프로토콜 설계해줘", "should_trigger": false},
+  {"query": "데이터 FFT 분석해줘", "should_trigger": false},
+  {"query": "보행 분석 GCP 구해줘", "should_trigger": false},
+  {"query": "모터 안전 검증해줘", "should_trigger": false},
+  {"query": "하드웨어 테스트해줘", "should_trigger": false},
+  {"query": "GUI 레이아웃 수정해줘", "should_trigger": false},
+  {"query": "펌웨어 업로드해줘", "should_trigger": false},
+  {"query": "CSV 데이터 다운로드해줘", "should_trigger": false},
+  {"query": "weekly standup 정리해줘", "should_trigger": false},
+  {"query": "코드 리뷰해줘", "should_trigger": false}
+]

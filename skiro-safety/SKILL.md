@@ -1,10 +1,12 @@
 ---
 name: skiro-safety
 description: |
-  Verify robot code correctness: actuator limits, watchdog, e-stop, state machine,
-  control loop timing, communication protocols. Blocks firmware upload if CRITICAL
-  items fail. Use before /skiro-flash or before experiments. Keywords: safety, limit,
-  watchdog, e-stop, emergency, force limit, max torque, timeout. (skiro)
+  Verify and audit robot code for safety: actuator limits, watchdog, e-stop,
+  state machine, control loop timing, communication protocols. Code review
+  and verification only — NOT for building GUI, plotting data, or writing
+  new features. Blocks firmware upload if CRITICAL items fail.
+  Keywords: safety check, verify limits, watchdog audit, e-stop logic,
+  code review safety, max torque check, timeout verification. (skiro)
 allowed-tools:
   - Bash
   - Read

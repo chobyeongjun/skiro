@@ -112,7 +112,7 @@ Each test script must:
 - Import only standard libraries + the minimum driver needed
 - Print clear PASS/FAIL with measured values and expected ranges
 - Have a timeout (default 5s per test)
-- Be runnable standalone: `python tests/hardware/test_motor.py`
+- Be runnable standalone: `python3 tests/hardware/test_motor.py`
 
 ## Phase 3: Run Tests (with permission)
 AskUserQuestion before running on real hardware:

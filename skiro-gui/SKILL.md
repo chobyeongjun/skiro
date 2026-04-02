@@ -1,18 +1,16 @@
 ---
 name: skiro-gui
 description: |
-  Robot GUI development assistant. Handles layout, styling, and interaction
-  for any GUI framework: PyQt5/6, PySide, Tkinter, Kivy, Dear ImGui, Flutter,
-  or web dashboards. Understands natural language layout instructions like
-  "move this left", "make this bigger", "put a chart here", "these two overlap".
-  Detects layout overlap and responsive issues. Enforces design consistency
-  (spacing rhythm, color palette, typography hierarchy).
-  Use when building or modifying robot control interfaces, data dashboards,
-  experiment UIs, or any desktop/embedded GUI. Also use when the user describes
-  visual changes in natural language or complains about overlapping widgets.
-  Keywords: GUI, UI, layout, widget, plot, style, design, PyQt, Tkinter,
-  dashboard, button, panel, tab, sidebar, responsive, overlap, move, resize,
-  bigger, smaller, collapsible, dark theme, glassmorphism. (skiro)
+  Desktop GUI development for robot control interfaces, sensor dashboards,
+  and experiment UIs. Specifically for PyQt5/6, PySide, Tkinter, Kivy, or
+  Dear ImGui — NOT for web frameworks (React, Vue, Next.js, CSS).
+  Understands natural language layout requests like "move this left",
+  "make this bigger", "these two overlap". Includes real-time pyqtgraph
+  plotting, collapsible panels, dark theme, and overlap detection.
+  Use when building or modifying desktop GUIs for robots, motors, sensors,
+  or experiment data visualization. NOT for web apps or mobile apps.
+  Keywords: PyQt, Tkinter, GUI, widget, dashboard, plot, pyqtgraph,
+  real-time, panel, sidebar, collapsible, dark theme, sensor monitor. (skiro)
 allowed-tools:
   - Bash
   - Read
@@ -39,6 +37,9 @@ Read VOICE.md before responding.
    - `theme.dart` (Flutter)
 3. Load learnings for "gui", "layout", "design" tags.
 4. Read `references/gui-layout-rules.md` for framework-specific patterns.
+5. **Communication note**: This skill handles UI widgets and layout only.
+   For BLE/WiFi/Serial connection logic (bleak, socket, pyserial), use /skiro-comm.
+   For GUI↔robot data flow, see /skiro-comm Phase 5 (QThread + signal/slot).
 
 ## Phase 1: Understand the Request
 
@@ -186,6 +187,118 @@ These are valid design choices, but overuse creates "AI slop" feeling:
 - Inconsistent border-radius → pick 2-3 values and stick to them
 - Color-only status indicators → always add text/icon for accessibility
 **If the user explicitly requests these styles, apply them without objection.**
+
+## Phase 4B: Real-Time Plot Integration
+
+When adding live data plots to a GUI, use `pyqtgraph` (not matplotlib). matplotlib is for static figures; pyqtgraph is designed for real-time updates.
+
+### PyQtGraph Real-Time Plot Pattern:
+```python
+import pyqtgraph as pg
+from PyQt5.QtCore import QTimer
+import numpy as np
+from collections import deque
+
+class RealtimePlotWidget(pg.PlotWidget):
+    """Efficient real-time plot with ring buffer."""
+    def __init__(self, max_points=2000, update_ms=33, parent=None):
+        super().__init__(parent=parent)
+        self.max_points = max_points
+        self.data_x = deque(maxlen=max_points)
+        self.data_y = deque(maxlen=max_points)
+        self.curve = self.plot(pen=pg.mkPen("#4C9EFF", width=2))
+        
+        # Anti-aliasing off for performance
+        self.setAntialiasing(False)
+        self.setDownsampling(auto=True, mode="peak")
+        self.setClipToView(True)
+        
+        # Timer-driven update (not data-driven!)
+        self._timer = QTimer()
+        self._timer.timeout.connect(self._update_plot)
+        self._timer.start(update_ms)  # ~30 FPS
+    
+    def add_point(self, x, y):
+        """Thread-safe: call from data thread."""
+        self.data_x.append(x)
+        self.data_y.append(y)
+    
+    def _update_plot(self):
+        """Called by QTimer on GUI thread only."""
+        if self.data_x:
+            self.curve.setData(list(self.data_x), list(self.data_y))
+```
+
+### Collapsible Panel + Plot Timing Issue:
+When toggling a collapsible panel that contains a plot, `canvas.draw()` can be called before the layout recalculates, causing size mismatch.
+
+**Problem:**
+```python
+# BAD: draw before layout settles
+def _toggle_panel(self):
+    self.panel.setVisible(not self.panel.isVisible())
+    self.plot_widget.update()  # ← size is still old
+```
+
+**Fix:**
+```python
+# GOOD: defer draw to next event loop cycle
+from PyQt5.QtCore import QTimer
+
+def _toggle_panel(self):
+    visible = not self.panel.isVisible()
+    self.panel.setVisible(visible)
+    self.toggle_btn.setText("▶" if not visible else "◀")
+    # Defer plot resize to after layout recalculation
+    QTimer.singleShot(0, self._resize_plots)
+
+def _resize_plots(self):
+    """Called after layout has settled."""
+    for plot in self.findChildren(pg.PlotWidget):
+        plot.getViewBox().autoRange()
+```
+
+### Multi-Channel Plot Panel:
+```python
+class MultiChannelPlot(QWidget):
+    """Stacked real-time plots with shared X-axis."""
+    def __init__(self, channels: list[str], parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(2)
+        
+        self.plots = {}
+        prev_plot = None
+        for ch_name in channels:
+            pw = RealtimePlotWidget(parent=self)
+            pw.setLabel("left", ch_name)
+            pw.setMinimumHeight(80)
+            if prev_plot:
+                pw.setXLink(prev_plot)  # Shared X-axis zoom/pan
+                pw.hideAxis("bottom")   # Only show X on last plot
+            self.plots[ch_name] = pw
+            layout.addWidget(pw)
+            prev_plot = pw
+        
+        # Show X-axis only on last plot
+        if channels:
+            self.plots[channels[-1]].showAxis("bottom")
+            self.plots[channels[-1]].setLabel("bottom", "Time (s)")
+
+# Usage:
+# multi = MultiChannelPlot(["Force_N", "Position_deg", "Current_A"])
+# multi.plots["Force_N"].add_point(t, force_value)
+```
+
+### Performance Guidelines:
+| Scenario | Approach |
+|----------|----------|
+| < 1000 Hz data | Direct QTimer update at 30 FPS |
+| 1000-10000 Hz | Downsample in add_point (keep every Nth) |
+| > 10000 Hz | Ring buffer + decimation in update |
+| Multiple plots | Shared QTimer, batch updates |
+| Plot in QTabWidget | Pause timer when tab not visible |
 
 ## Phase 5: Verification
 

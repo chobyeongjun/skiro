@@ -1,9 +1,11 @@
 ---
 name: skiro-flash
 description: |
-  Build and upload firmware to MCU (Teensy, STM32, Arduino, etc).
-  Enforces pre-flash safety check and git commit.
-  Keywords: flash, upload, firmware, deploy, burn, program MCU. (skiro)
+  Build and upload firmware to MCU (Teensy, STM32, Arduino, ESP32).
+  Enforces pre-flash safety check and git commit. For embedded firmware
+  only — NOT for web deploy, Docker, cloud, or CI/CD deployment.
+  Keywords: flash, firmware upload, MCU program, burn, Teensy upload,
+  platformio, arduino-cli, hex upload, STM32 flash. (skiro)
 allowed-tools:
   - Bash
   - Read
@@ -31,4 +33,22 @@ Build success -> run upload command.
 Basic communication test after upload. Report PASS/FAIL.
 
 ## Phase 5: Log + Next Step
-Save session. Next: /skiro-hwtest to validate.
+Save session.
+
+Next step suggestions:
+- Flash successful → /skiro-hwtest to verify hardware behavior
+- Need communication setup → /skiro-comm
+- Ready for experiment → /skiro-spec
+
+### Auto-Suggestion on Code Changes
+When working outside of /skiro-flash (e.g., editing firmware code), detect
+firmware file modifications and proactively suggest re-building:
+
+```bash
+# Check for recent firmware changes
+git diff --name-only HEAD 2>/dev/null | grep -E '\.(ino|cpp|h|c)$|platformio\.ini' | head -5
+```
+
+If firmware files were modified since last flash:
+→ Display: "Firmware files changed since last build. Run /skiro-flash to verify."
+→ Do NOT auto-build. Always wait for user confirmation.

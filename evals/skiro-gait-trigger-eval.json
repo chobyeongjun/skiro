@@ -1,0 +1,22 @@
+[
+  {"query": "gait cycle percentage 계산해줘. IMU 데이터에서 heel strike 검출 필요", "should_trigger": true},
+  {"query": "stride time이랑 cadence 분석해줘. 트레드밀 보행 데이터야", "should_trigger": true},
+  {"query": "stance phase랑 swing phase 비율 구해줘", "should_trigger": true},
+  {"query": "보행 대칭성 분석해줘. 좌우 symmetry index 계산", "should_trigger": true},
+  {"query": "heel strike 이벤트 검출해줘. 가속도계 데이터에서", "should_trigger": true},
+  {"query": "GCP로 정규화해줘. force profile을 gait cycle percentage 기준으로", "should_trigger": true},
+  {"query": "double support time 계산해줘. 양발 지지 구간 분석", "should_trigger": true},
+  {"query": "exoskeleton 보행 데이터 분석해줘. 보조 전후 비교", "should_trigger": true},
+  {"query": "walking speed variability 구해줘. stride time의 CV", "should_trigger": true},
+  {"query": "heel off 시점 검출해줘. force plate 데이터에서", "should_trigger": true},
+  {"query": "RMSE 계산해줘. tracking error 분석", "should_trigger": false},
+  {"query": "FFT 분석해줘. 주파수 응답 확인", "should_trigger": false},
+  {"query": "force-displacement 커브 그려줘", "should_trigger": false},
+  {"query": "두 조건 t-test 비교해줘. 일반 로봇 실험", "should_trigger": false},
+  {"query": "bandwidth 측정해줘", "should_trigger": false},
+  {"query": "SD카드 데이터 다운로드해줘", "should_trigger": false},
+  {"query": "GUI 만들어줘", "should_trigger": false},
+  {"query": "safety check 돌려줘", "should_trigger": false},
+  {"query": "펌웨어 플래시해줘", "should_trigger": false},
+  {"query": "PSD 분석해줘. 로봇 팔 진동 주파수 성분", "should_trigger": false}
+]

@@ -1,0 +1,22 @@
+[
+  {"query": "이 코드에서 force limit 확인해줘. AK60 모터 최대 토크가 넘는지 체크해야 해", "should_trigger": true},
+  {"query": "watchdog timer가 제대로 동작하는지 검증해줘", "should_trigger": true},
+  {"query": "e-stop 로직 리뷰해줘. 비상정지 시 모든 액추에이터가 즉시 멈추는지 확인", "should_trigger": true},
+  {"query": "제어 루프 타이밍 안전성 점검해줘. 1kHz 루프인데 deadline miss가 있을 수 있어", "should_trigger": true},
+  {"query": "CAN 통신에서 타임아웃 처리가 안 되어 있는 것 같아. 안전 코드 리뷰 부탁", "should_trigger": true},
+  {"query": "state machine에서 FAULT 상태로 전환되는 조건이 빠져있는 것 같아", "should_trigger": true},
+  {"query": "모터 전류 제한이 소프트웨어에서 제대로 설정되어 있는지 확인해줘", "should_trigger": true},
+  {"query": "safety check 돌려줘. 내일 실험 전에 코드 검증 필요해", "should_trigger": true},
+  {"query": "이 로봇 코드 안전한지 봐줘. 특히 max torque 설정이 걱정돼", "should_trigger": true},
+  {"query": "emergency stop이 눌렸을 때 모터 드라이버 disable 되는지 확인해줘", "should_trigger": true},
+  {"query": "Teensy에 펌웨어 업로드해줘", "should_trigger": false},
+  {"query": "실험 프로토콜 작성해줘. 보행 실험이야", "should_trigger": false},
+  {"query": "CSV 데이터에서 NaN 체크해줘", "should_trigger": false},
+  {"query": "PyQt5로 모터 제어 GUI 만들어줘", "should_trigger": false},
+  {"query": "RMSE 계산해줘. tracking error 분석이야", "should_trigger": false},
+  {"query": "하드웨어 테스트 스크립트 만들어줘. IMU 센서 동작 확인용", "should_trigger": false},
+  {"query": "실험 끝났어. 뭐가 잘못됐는지 정리해줘", "should_trigger": false},
+  {"query": "gait cycle percentage 계산해줘", "should_trigger": false},
+  {"query": "SD카드에서 데이터 다운로드해야 해", "should_trigger": false},
+  {"query": "PID 게인 튜닝 도와줘. Kp=10, Ki=0.1로 시작하려고", "should_trigger": false}
+]

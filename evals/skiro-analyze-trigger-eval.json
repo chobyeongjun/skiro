@@ -1,0 +1,22 @@
+[
+  {"query": "tracking error RMSE 계산해줘. reference vs actual position 데이터 있어", "should_trigger": true},
+  {"query": "FFT 분석해줘. 제어 입력의 주파수 응답 보고 싶어", "should_trigger": true},
+  {"query": "두 실험 조건 통계 비교해줘. paired t-test 필요해", "should_trigger": true},
+  {"query": "force-displacement 커브 그려줘. 논문에 넣을 figure", "should_trigger": true},
+  {"query": "bandwidth 측정해줘. -3dB cutoff frequency 찾아야 해", "should_trigger": true},
+  {"query": "matplotlib으로 paper-ready figure 만들어줘. IEEE 포맷", "should_trigger": true},
+  {"query": "ANOVA 돌려줘. 3가지 제어 방식 비교 실험이야", "should_trigger": true},
+  {"query": "PSD 분석해줘. 진동 주파수 성분 확인하고 싶어", "should_trigger": true},
+  {"query": "LaTeX 표 만들어줘. 실험 결과 정리해서 JNER 포맷으로", "should_trigger": true},
+  {"query": "effect size 계산해줘. Cohen's d 필요해", "should_trigger": true},
+  {"query": "gait cycle percentage 계산해줘. heel strike 검출 필요", "should_trigger": false},
+  {"query": "stride time이랑 cadence 구해줘", "should_trigger": false},
+  {"query": "보행 대칭성 분석해줘. symmetry index", "should_trigger": false},
+  {"query": "SD카드에서 데이터 다운로드해줘", "should_trigger": false},
+  {"query": "GUI 만들어줘", "should_trigger": false},
+  {"query": "safety check 돌려줘", "should_trigger": false},
+  {"query": "펌웨어 올려줘", "should_trigger": false},
+  {"query": "실험 프로토콜 설계해줘", "should_trigger": false},
+  {"query": "CSV 파일 NaN 체크해줘. 무결성 검증", "should_trigger": false},
+  {"query": "retrospective 해줘", "should_trigger": false}
+]

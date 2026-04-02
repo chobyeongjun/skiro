@@ -206,6 +206,30 @@ Stride time (s) & 1.12 & 0.08 & 1.18 & 0.11 & 0.023* \\
 \end{table*}
 ```
 
+### LaTeX Table Template (Gait & Posture)
+```latex
+% Gait & Posture uses Elsevier format: booktabs, no vertical rules
+\begin{table}[h]
+\caption{Temporal-spatial gait parameters across conditions.}
+\label{tab:gait_params}
+\begin{tabular}{l c c c}
+\toprule
+ & Assist ON & Assist OFF & $p$-value \\
+\midrule
+Stride time (s) & 1.12 $\pm$ 0.08 & 1.18 $\pm$ 0.11 & 0.023\textsuperscript{*} \\
+Cadence (steps/min) & 107.1 $\pm$ 7.6 & 101.7 $\pm$ 9.4 & 0.041\textsuperscript{*} \\
+Stance phase (\%) & 62.3 $\pm$ 2.1 & 63.8 $\pm$ 2.5 & 0.112 \\
+Swing phase (\%) & 37.7 $\pm$ 2.1 & 36.2 $\pm$ 2.5 & 0.112 \\
+Double support (\%) & 24.6 $\pm$ 3.2 & 27.1 $\pm$ 3.8 & 0.067 \\
+Stride time CV (\%) & 2.8 $\pm$ 0.9 & 4.1 $\pm$ 1.5 & 0.008\textsuperscript{**} \\
+Symmetry index (\%) & 4.2 $\pm$ 1.8 & 7.9 $\pm$ 3.1 & 0.003\textsuperscript{**} \\
+\bottomrule
+\multicolumn{4}{l}{\footnotesize Values: mean $\pm$ SD. \textsuperscript{*}$p < 0.05$, \textsuperscript{**}$p < 0.01$.} \\
+\multicolumn{4}{l}{\footnotesize Statistical test: paired $t$-test (normal) or Wilcoxon signed-rank (non-normal).}
+\end{tabular}
+\end{table}
+```
+
 ### Figure Descriptions for Papers
 When generating figures, always include:
 1. **Title** — what the figure shows

@@ -1,15 +1,15 @@
 ---
 name: skiro-data
 description: |
-  Robot data collection and management pipeline. Handles data download from
-  embedded storage (SD card, flash), serial data capture, data validation,
-  format conversion, and backup. Supports CSV, ROS bag, HDF5, binary logs.
-  Verifies data integrity: timestamps, NaN, gaps, sample rate, sensor range.
-  Use when collecting experiment data, downloading from robot, validating
-  datasets, organizing files, or converting between formats.
-  Keywords: data, CSV, SD card, download, log, logging, export, column,
-  ROS bag, HDF5, serial, backup, integrity, sample rate, timestamp,
-  validate, organize, convert, NaN, gap, missing data. (skiro)
+  Robot experiment data management. Validates data integrity (timestamps,
+  NaN, gaps, sample rate), converts formats (CSV, ROS bag, HDF5, binary),
+  organizes experiment files, and audits datasets. For robot/sensor data
+  from MCU or ROS — NOT for web APIs, databases, or business data.
+  Use when validating sensor logs, organizing experiment files, converting
+  formats, or auditing existing datasets.
+  Keywords: data management, data validation, CSV, ROS bag, HDF5,
+  format conversion, organize, integrity check, sample rate, NaN,
+  experiment data, file naming, dataset audit. (skiro)
 allowed-tools:
   - Bash
   - Read
@@ -66,9 +66,114 @@ E) Other (describe)
 3. Proceed directly to Phase 3 (validation).
 
 ### C) ROS Bag
-1. `ros2 bag info <path>` — list topics, message counts, duration.
-2. AskUserQuestion: "Which topics to extract?" [show topic list]
-3. Extract selected topics to CSV.
+1. Detect bag format:
+   ```bash
+   # ROS 2 (SQLite3-based .db3)
+   file *.db3 2>/dev/null
+   # ROS 1 (.bag)
+   file *.bag 2>/dev/null
+   ```
+2. Get bag info:
+   ```bash
+   # ROS 2 (if ros2 installed)
+   ros2 bag info <path> 2>/dev/null
+   # Fallback: use rosbags (no ROS install needed)
+   python3 -c "
+   from rosbags.rosbag2 import Reader
+   with Reader('<path>') as reader:
+       for conn in reader.connections:
+           print(f'{conn.topic} [{conn.msgtype}] — {conn.msgcount} msgs')
+       print(f'Duration: {(reader.duration)/1e9:.1f}s')
+   "
+   ```
+3. AskUserQuestion: "Which topics to extract?" [show topic list]
+4. Extract to CSV using `rosbags` (works without ROS installation):
+
+**ROS 2 bag → CSV extraction (rosbags library):**
+```python
+"""Extract ROS 2 bag topics to CSV. Requires: pip install rosbags"""
+import csv
+from pathlib import Path
+from rosbags.rosbag2 import Reader
+from rosbags.typesys import get_typestore, Stores
+
+def extract_topic_to_csv(bag_path: str, topic: str, output_csv: str):
+    """Extract a single topic from ROS 2 bag to CSV."""
+    typestore = get_typestore(Stores.ROS2_HUMBLE)  # or ROS2_IRON, ROS2_JAZZY
+    
+    rows = []
+    with Reader(bag_path) as reader:
+        # Register custom types if needed
+        reader.open()
+        connections = [c for c in reader.connections if c.topic == topic]
+        if not connections:
+            raise ValueError(f"Topic '{topic}' not found. Available: "
+                           f"{[c.topic for c in reader.connections]}")
+        
+        for conn, timestamp, rawdata in reader.messages(connections=connections):
+            msg = typestore.deserialize_cdr(rawdata, conn.msgtype)
+            row = {"timestamp_ns": timestamp}
+            # Flatten message fields recursively
+            _flatten_msg(msg, "", row)
+            rows.append(row)
+    
+    # Write CSV
+    if rows:
+        with open(output_csv, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+            writer.writeheader()
+            writer.writerows(rows)
+        print(f"Wrote {len(rows)} rows to {output_csv}")
+    return rows
+
+def _flatten_msg(msg, prefix, row):
+    """Recursively flatten a ROS message into a flat dict."""
+    import numpy as np
+    for field_name in msg.__dataclass_fields__:
+        val = getattr(msg, field_name)
+        key = f"{prefix}{field_name}" if prefix else field_name
+        if hasattr(val, "__dataclass_fields__"):
+            _flatten_msg(val, f"{key}.", row)  # Nested message
+        elif isinstance(val, (np.ndarray, list, tuple)):
+            for i, v in enumerate(val):
+                row[f"{key}[{i}]"] = float(v) if isinstance(v, (int, float, np.number)) else str(v)
+        else:
+            row[key] = val
+
+# Usage:
+# extract_topic_to_csv("rosbag2_dir/", "/imu/data", "imu_data.csv")
+# extract_topic_to_csv("rosbag2_dir/", "/joint_states", "joints.csv")
+```
+
+**ROS 1 bag → CSV extraction:**
+```python
+"""Extract ROS 1 bag topics to CSV. Requires: pip install rosbags"""
+from rosbags.rosbag1 import Reader as Reader1
+from rosbags.typesys import get_typestore, Stores
+
+def extract_ros1_topic(bag_path: str, topic: str, output_csv: str):
+    typestore = get_typestore(Stores.ROS1_NOETIC)
+    rows = []
+    with Reader1(bag_path) as reader:
+        connections = [c for c in reader.connections.values() if c.topic == topic]
+        for conn, timestamp, rawdata in reader.messages(connections=connections):
+            msg = typestore.deserialize_ros1(rawdata, conn.msgtype)
+            row = {"timestamp_ns": timestamp}
+            _flatten_msg(msg, "", row)
+            rows.append(row)
+    # Same CSV write logic as above
+```
+
+**Common message types and expected columns:**
+| Message Type | Key Columns |
+|-------------|-------------|
+| sensor_msgs/Imu | angular_velocity.{x,y,z}, linear_acceleration.{x,y,z}, orientation.{x,y,z,w} |
+| sensor_msgs/JointState | position[i], velocity[i], effort[i] |
+| geometry_msgs/WrenchStamped | wrench.force.{x,y,z}, wrench.torque.{x,y,z} |
+| std_msgs/Float64MultiArray | data[0], data[1], ... |
+| nav_msgs/Odometry | pose.position.{x,y,z}, twist.linear.{x,y,z} |
+
+5. After extraction: auto-proceed to Phase 3 (integrity validation) on all generated CSVs.
 
 ### D) Serial Capture
 1. Detect serial port: `ls /dev/tty* | grep -i "usb\|acm\|teensy"`

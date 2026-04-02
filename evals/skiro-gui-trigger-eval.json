@@ -1,0 +1,22 @@
+[
+  {"query": "PyQt5로 모터 제어 GUI 만들어줘. 슬라이더랑 실시간 그래프 필요해", "should_trigger": true},
+  {"query": "GUI에서 버튼이 겹쳐. overlap 해결해줘", "should_trigger": true},
+  {"query": "대시보드 레이아웃 수정해줘. 왼쪽에 사이드바, 오른쪽에 차트", "should_trigger": true},
+  {"query": "이 위젯 좀 더 크게 만들어줘. 그래프가 너무 작아서 안 보여", "should_trigger": true},
+  {"query": "다크 테마 적용해줘. 글래스모피즘 스타일로", "should_trigger": true},
+  {"query": "collapsible 패널 추가해줘. 설정 영역을 접을 수 있게", "should_trigger": true},
+  {"query": "Tkinter로 간단한 실험 UI 만들어줘. Start/Stop 버튼이랑 상태 표시", "should_trigger": true},
+  {"query": "GUI 디자인 일관성 맞춰줘. 폰트 사이즈랑 색상 통일", "should_trigger": true},
+  {"query": "탭 레이아웃으로 바꿔줘. 모터 탭, 센서 탭, 로그 탭", "should_trigger": true},
+  {"query": "로봇 제어 인터페이스 만들어줘. 조이스틱 입력이랑 상태 모니터링", "should_trigger": true},
+  {"query": "CSV 데이터 검증해줘", "should_trigger": false},
+  {"query": "safety check 돌려줘", "should_trigger": false},
+  {"query": "펌웨어 플래시해줘", "should_trigger": false},
+  {"query": "실험 프로토콜 설계해줘", "should_trigger": false},
+  {"query": "RMSE 계산해서 논문용 표 만들어줘", "should_trigger": false},
+  {"query": "gait cycle 분석해줘", "should_trigger": false},
+  {"query": "웹 API 엔드포인트 만들어줘. REST API", "should_trigger": false},
+  {"query": "matplotlib으로 figure 그려줘. 분석용 그래프", "should_trigger": false},
+  {"query": "CLI 도구 만들어줘. 커맨드라인 인터페이스", "should_trigger": false},
+  {"query": "하드웨어 테스트 스크립트 작성해줘", "should_trigger": false}
+]

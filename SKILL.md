@@ -1,52 +1,70 @@
 ---
 name: skiro
 description: |
-  AI development pipeline for Robot Engineers. Covers safety verification,
-  hardware testing (with auto-generated hardware.yaml from datasheets),
-  firmware management, experiment design, data collection, analysis,
-  GUI development, and experiment retrospectives for any robot platform.
+  AI development pipeline for Robot Engineers. Covers hardware testing,
+  safety verification, firmware upload, robot communication (BLE/WiFi/Serial),
+  experiment design, data management, data analysis, gait analysis,
+  desktop GUI development, and experiment retrospectives.
+  For physical robot/actuator/sensor projects only — NOT for web apps,
+  databases, cloud services, or general software development.
   Auto-activates on keywords: robot, motor, CAN, firmware, sensor, control
-  loop, impedance, safety, experiment, calibration, force limit, watchdog,
-  e-stop, actuator, encoder, PID, IMU, GUI, data, CSV, gait, analysis.
-  Use /skiro-safety for code verification, /skiro-hwtest for hardware tests
-  and auto hardware.yaml, /skiro-flash for firmware, /skiro-spec for
-  experiment design, /skiro-retro for retrospectives, /skiro-gui for GUI
-  development, /skiro-data for data management, /skiro-analyze for analysis,
-  /skiro-gait for gait-specific analysis.
+  loop, impedance, actuator, encoder, PID, IMU, MCU, Teensy, STM32,
+  Arduino, exoskeleton, torque, force limit, watchdog, e-stop, gait,
+  BLE, Bluetooth, bleak.
+  Use /skiro-hwtest, /skiro-safety, /skiro-flash, /skiro-comm, /skiro-spec,
+  /skiro-data, /skiro-analyze, /skiro-gait, /skiro-gui, /skiro-retro.
 ---
 
 # Skiro — AI Development Pipeline for Robot Engineers
 Skills + Robot. Built for real hardware, real experiments, real papers.
 
+## Skill Selection Guide
+
+Pick the right skill based on what you need:
+
+```
+What do you want to do?
+├── 하드웨어 셋업/테스트?           → /skiro-hwtest
+├── 코드 안전 검증?                 → /skiro-safety
+├── 펌웨어 빌드/업로드?             → /skiro-flash
+├── BLE/WiFi/Serial 통신?           → /skiro-comm
+├── 실험 설계/프로토콜?             → /skiro-spec
+├── 데이터 정리/검증/변환?          → /skiro-data
+├── 데이터 분석 (RMSE/FFT/통계)?    → /skiro-analyze
+├── 보행 분석 (GCP/stride/HS)?      → /skiro-gait
+├── GUI 개발 (PyQt/Tkinter)?        → /skiro-gui
+└── 실험 회고/논문 정리?            → /skiro-retro
+```
+
 ## Available Commands
 
 | Command | What it does | When to use |
 |---------|-------------|-------------|
-| /skiro-hwtest | Hardware test + **auto hardware.yaml from datasheets** | New project, new hardware, setup |
-| /skiro-safety | Verify code correctness: limits, watchdog, logic | Before flashing, before experiments |
-| /skiro-flash | Build + upload firmware to MCU | Firmware changes |
-| /skiro-spec | Design experiment protocol | Planning a new experiment |
-| /skiro-data | Data collection, validation, organization | Download from robot, validate data |
-| /skiro-analyze | Universal data analysis (RMSE, FFT, stats) | Analyze results, compare conditions |
-| /skiro-gait | Gait analysis (extends /skiro-analyze) | Walking robot / exoskeleton projects |
-| /skiro-gui | GUI development (layout, styling, responsive) | Build or fix robot UI |
+| /skiro-hwtest | Hardware test + **auto hardware.yaml** | New project, new hardware |
+| /skiro-safety | Verify code: limits, watchdog, e-stop | Before flash, before experiments |
+| /skiro-flash | Build + upload firmware to MCU | After code changes |
+| /skiro-comm | BLE/WiFi/Serial communication setup | Robot ↔ PC connection |
+| /skiro-spec | Design experiment protocol | Planning experiments |
+| /skiro-data | Data management: validate, convert, organize | After data collection |
+| /skiro-analyze | Analysis: RMSE, FFT, stats, paper figures | Analyze results |
+| /skiro-gait | Gait analysis (extends /skiro-analyze) | Walking robot / exoskeleton |
+| /skiro-gui | Desktop GUI (PyQt, Tkinter) | Build robot control UI |
 | /skiro-retro | Experiment retrospective + paper data | After experiments |
 
 ## Workflow
 
 ```
-                   ┌── /skiro-gui (GUI work, anytime)
-                   │
-/skiro-hwtest ────→ /skiro-spec ──→ /skiro-safety ──→ /skiro-flash
-(auto hardware.yaml)  (experiment)    (code verify)     (firmware)
-                                                           │
-                                                      [experiment]
-                                                           │
-                                    /skiro-data ──→ /skiro-analyze ──→ /skiro-retro
-                                    (collect data)   (analysis)         (retrospective)
-                                                        │
-                                                   /skiro-gait
-                                                   (gait-specific)
+/skiro-hwtest ──→ /skiro-spec ──→ /skiro-safety ──→ /skiro-flash
+(hardware setup)   (experiment)    (code verify)     (firmware)
+       │                                                │
+       └──→ /skiro-comm (BLE/WiFi/Serial)              │
+                  │                                [experiment]
+                  └──→ /skiro-gui (control UI)          │
+                                              /skiro-data ──→ /skiro-analyze ──→ /skiro-retro
+                                              (manage data)   (analysis)         (retrospective)
+                                                                  │
+                                                             /skiro-gait
+                                                             (gait-specific)
 ```
 
 Each skill recommends the next step when it finishes.
@@ -66,7 +84,7 @@ Each skill recommends the next step when it finishes.
 ├─────────────────────────────────────────────┤
 │  Core Skills                                 │
 │  hwtest │ safety │ flash │ spec │ retro      │
-│  gui    │ data                               │
+│  gui    │ data   │ comm                      │
 ├─────────────────────────────────────────────┤
 │  Infrastructure                              │
 │  hardware.yaml │ CHECKLIST.md │ VOICE.md     │

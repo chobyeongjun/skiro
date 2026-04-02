@@ -1,16 +1,16 @@
 ---
 name: skiro-analyze
 description: |
-  Universal robot data analysis. Computes control performance metrics
-  (tracking error, RMSE, bandwidth), trajectory analysis, force-displacement
-  curves, frequency response (FFT, PSD, Bode), and statistical comparison
-  between experimental conditions. Generates paper-ready matplotlib figures
-  and LaTeX tables (IEEE, JNER format). Works with any CSV, ROS bag, or HDF5
-  robot data. Use when analyzing experiment results, computing metrics,
-  comparing conditions, or preparing figures and tables for papers.
-  Keywords: analyze, trajectory, force, torque, RMSE, tracking error,
-  bandwidth, frequency, FFT, PSD, statistics, t-test, ANOVA, comparison,
-  figure, plot, matplotlib, LaTeX, paper, table, effect size. (skiro)
+  Robot experiment data analysis — control performance (RMSE, bandwidth,
+  tracking error), force-displacement curves, frequency response (FFT, PSD,
+  Bode), and statistical condition comparison (t-test, ANOVA). Generates
+  paper-ready matplotlib figures and LaTeX tables (IEEE, JNER format).
+  For robot/sensor/actuator data only — NOT for business analytics, stock
+  data, or web metrics. For gait-specific analysis (GCP, heel strike,
+  stride time), use /skiro-gait instead.
+  Keywords: RMSE, tracking error, bandwidth, FFT, PSD, force, torque,
+  t-test, ANOVA, matplotlib, LaTeX, paper figure, condition comparison,
+  robot data, control performance, effect size. (skiro)
 allowed-tools:
   - Bash
   - Read
@@ -94,13 +94,32 @@ Based on selected analysis type:
 ### E) Condition Comparison
 1. Identify conditions from filenames or ask user.
 2. Compute descriptive stats: mean ± SD for each metric per condition.
-3. Normality test (Shapiro-Wilk) → select parametric or non-parametric test.
-4. Run appropriate test:
-   - 2 paired conditions → paired t-test or Wilcoxon
-   - 2 independent conditions → independent t-test or Mann-Whitney
-   - 3+ conditions → ANOVA or Kruskal-Wallis
-5. Effect size: Cohen's d (2 groups) or η² (3+ groups)
-6. Generate comparison table with p-values and significance markers.
+3. **Normality test (Shapiro-Wilk)** → select parametric or non-parametric test.
+   - **WARNING**: Shapiro-Wilk is unreliable for n > 50 (almost always rejects).
+     For n > 50: use D'Agostino-Pearson (`scipy.stats.normaltest`) or visual
+     QQ-plot + skewness/kurtosis check instead.
+   - For n < 8: Shapiro-Wilk has low power, consider non-parametric by default.
+   ```python
+   from scipy import stats
+   if n <= 50:
+       _, p_norm = stats.shapiro(data)
+   else:
+       _, p_norm = stats.normaltest(data)  # D'Agostino-Pearson
+   is_normal = p_norm > 0.05
+   ```
+4. **Paired vs Independent auto-detection**:
+   - **Paired**: same subjects measured in both conditions (same N, matched order)
+     → Check: `len(condition_a) == len(condition_b)` AND filenames share subject IDs
+   - **Independent**: different subjects per condition (different N or unmatched)
+   - **When ambiguous**: AskUserQuestion "Are these paired measurements (same subjects
+     in both conditions) or independent groups?"
+5. Run appropriate test:
+   - 2 paired conditions → paired t-test or Wilcoxon signed-rank
+   - 2 independent conditions → independent t-test (Welch's) or Mann-Whitney U
+   - 3+ paired conditions → repeated-measures ANOVA or Friedman
+   - 3+ independent conditions → one-way ANOVA or Kruskal-Wallis
+6. Effect size: Cohen's d (2 groups) or η² (3+ groups)
+7. Generate comparison table with p-values and significance markers.
 
 ## Phase 4: Visualization + Paper Output
 
