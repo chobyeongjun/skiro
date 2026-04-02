@@ -8,7 +8,7 @@ set -euo pipefail
 
 SKIRO_DIR="$HOME/.claude/skills/skiro"
 REPO_URL="https://github.com/chobyeongjun/skiro.git"
-VERSION="2.0.0"
+VERSION="1.0.0"
 USED_GIT=false
 
 echo "============================================"
@@ -44,7 +44,8 @@ if [ "$USED_GIT" = false ]; then
     "$SKIRO_DIR/skiro-gui" \
     "$SKIRO_DIR/skiro-data" \
     "$SKIRO_DIR/skiro-analyze" \
-    "$SKIRO_DIR/skiro-gait"
+    "$SKIRO_DIR/skiro-gait" \
+    "$SKIRO_DIR/skiro-comm"
 
   # ── SKILL.md ──────────────────────────────────────────────────────
   cat > "$SKIRO_DIR/SKILL.md" << 'ENDOFFILE'
@@ -79,6 +80,7 @@ Skills + Robot. Built for real hardware, real experiments, real papers.
 | /skiro-data | Data collection, validation, organization | Download from robot, validate data |
 | /skiro-analyze | Universal data analysis (RMSE, FFT, stats) | Analyze results, compare conditions |
 | /skiro-gait | Gait analysis (extends /skiro-analyze) | Walking robot / exoskeleton projects |
+| /skiro-comm | BLE/WiFi/Serial communication setup | Robot ↔ PC connection |
 | /skiro-gui | GUI development (layout, styling, responsive) | Build or fix robot UI |
 | /skiro-retro | Experiment retrospective + paper data | After experiments |
 
@@ -2278,6 +2280,63 @@ Log gait-specific findings as learnings.
 Next: /skiro-retro for full experiment retrospective.
 ENDOFFILE
 
+  # ── skiro-comm/SKILL.md ────────────────────────────────────────────
+  cat > "$SKIRO_DIR/skiro-comm/SKILL.md" << 'ENDOFFILE'
+---
+name: skiro-comm
+description: |
+  Robot communication setup and debugging. Handles BLE (bleak), WiFi
+  (TCP/UDP/MQTT), and USB Serial (pyserial) connections between robot
+  hardware and desktop software. Includes protocol design, packet
+  parsing, and GUI integration patterns (QThread + signal/slot).
+  For communication layer only — NOT for GUI layout (/skiro-gui),
+  data analysis (/skiro-analyze), or firmware upload (/skiro-flash).
+  Keywords (EN/KR): BLE/블루투스, WiFi/와이파이, serial/시리얼,
+  통신, 무선, 연결, 끊김, bleak, socket/소켓, MQTT, pyserial,
+  protocol/프로토콜, packet/패킷, notify, baud rate/보드레이트,
+  로봇 연결, 데이터 전송, 수신. (skiro)
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Grep
+  - Glob
+  - Agent
+  - WebSearch
+  - AskUserQuestion
+---
+
+Read VOICE.md before responding.
+
+(Full content available via git clone. Heredoc version abbreviated.)
+
+## Phase 0: Communication Discovery
+Detect existing BLE/WiFi/Serial code and ask user which method.
+
+## Phase 1: BLE (bleak)
+Scan, connect, read/write/notify with Nordic UART Service UUIDs.
+Auto-reconnect pattern with BLEConnection class.
+
+## Phase 2: WiFi (TCP/UDP/MQTT)
+Socket-based and MQTT patterns for robot control.
+
+## Phase 3: USB Serial (pyserial)
+Text and binary protocol reading with port auto-detection.
+
+## Phase 4: Protocol Design
+Custom packet structure: [HEADER][LENGTH][CMD_ID][PAYLOAD][CHECKSUM].
+
+## Phase 5: GUI Integration
+BLEWorker and SerialWorker QThread patterns for PyQt5.
+
+## Phase 6: Troubleshooting
+Common BLE/WiFi/Serial issues and fixes.
+
+## Phase 7: Next Step
+→ /skiro-gui for control interface, /skiro-data for logging, /skiro-safety for pre-experiment.
+ENDOFFILE
+
   # ── evals/*.json ──────────────────────────────────────────────────
   # (Eval files for trigger testing — abbreviated versions for the installer)
 
@@ -2791,7 +2850,7 @@ chmod +x "$SKIRO_DIR/bin/skiro-session" 2>/dev/null || true
 
 # ── Step 4: Create flat copies of sub-skill SKILL.md files ───────────
 echo "[3/4] Creating flat skill copies ..."
-for skill in safety hwtest flash spec retro gui data analyze gait; do
+for skill in safety hwtest flash spec retro gui data analyze gait comm; do
   FLAT_DIR="$HOME/.claude/skills/skiro-$skill"
   mkdir -p "$FLAT_DIR"
   if [ -f "$SKIRO_DIR/skiro-$skill/SKILL.md" ]; then
@@ -2821,11 +2880,11 @@ echo " Skiro v${VERSION} installed successfully!"
 echo "============================================"
 echo ""
 echo "Location : $SKIRO_DIR"
-echo "Skills   : 9 (safety hwtest flash spec retro gui data analyze gait)"
+echo "Skills   : 10 (safety hwtest flash spec retro gui data analyze gait comm)"
 echo "Binaries : bin/skiro-learnings  bin/skiro-session"
 echo ""
 echo "Flat copies:"
-for skill in safety hwtest flash spec retro gui data analyze gait; do
+for skill in safety hwtest flash spec retro gui data analyze gait comm; do
   echo "  ~/.claude/skills/skiro-$skill/SKILL.md"
 done
 echo ""

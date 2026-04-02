@@ -26,13 +26,25 @@ allowed-tools:
 
 Read VOICE.md before responding.
 
+## Data Safety Rules (모든 Phase에 적용)
+```
+⚠️  raw 데이터 파일은 절대 수정하지 않는다 — 읽기만 한다
+⚠️  분석 결과는 analysis/ 또는 paper_data/analysis/에 저장
+⚠️  기존 분석 결과를 덮어쓸 때 반드시 사용자 확인
+⚠️  분석에 사용된 파일 목록을 analysis/analysis_log.csv에 기록
+```
+
 ## Phase 0: Context
 
 1. Read hardware.yaml for sensor specs, control frequencies, safety limits.
-2. Scan for data files:
+2. Scan for data files — **paper_data/ 우선 확인**:
    ```bash
+   # paper_data/가 있으면 그 안의 데이터 사용 (skiro-data Phase 6에서 정리된 것)
+   ls paper_data/raw/*.csv 2>/dev/null && echo "PAPER_DATA_FOUND"
+   # 없으면 일반 스캔
    find . -name "*.csv" -o -name "*.bag" -o -name "*.h5" 2>/dev/null | head -20
    ```
+   paper_data/ 발견 시: "정리된 논문 데이터가 있습니다. 이 데이터로 분석할까요?"
 3. Load learnings for "analysis", "statistics", "figure" tags.
 4. Read `references/analysis-methods.md` for formulas and templates.
 
@@ -126,9 +138,14 @@ Based on selected analysis type:
 
 Generate matplotlib scripts following academic style from `references/analysis-methods.md`.
 
+### Output Directory:
+- paper_data/ 존재 시 → `paper_data/analysis/figures/`, `paper_data/analysis/tables/`
+- 없으면 → `analysis/figures/`, `analysis/tables/`
+- **기존 파일 덮어쓰기 전**: "fig1.png가 이미 존재합니다. 덮어쓸까요?" 확인
+
 ### Figure Generation Rules:
 - One `.py` script per figure (reusable)
-- Save to `analysis/figures/` directory
+- Save to output directory (위 규칙 참고)
 - IEEE single-column: 3.5" wide. Double-column: 7.16" wide.
 - All axes labeled with units: "Force (N)", "Time (s)"
 - Legend if multiple series
@@ -145,16 +162,30 @@ Generate matplotlib scripts following academic style from `references/analysis-m
 - Bracket + asterisk between compared conditions
 - `*` p<0.05, `**` p<0.01, `***` p<0.001, `ns` p≥0.05
 
-## Phase 5: Summary + Next Step
+## Phase 5: Analysis Log + Summary
 
+### 5-1. analysis_log.csv 기록
+분석에 사용된 모든 정보를 기록 — 나중에 "이 그래프 어떤 데이터로 만든 거지?" 추적용:
+
+```csv
+timestamp,analysis_type,input_files,output_files,parameters,notes
+2026-04-02T15:30,condition_comparison,"paper_data/raw/S01_AssistON_T1.csv;paper_data/raw/S01_AssistOFF_T1.csv","analysis/figures/fig1_force_comparison.png;analysis/tables/table1_results.tex","paired_t_test;alpha=0.05;cohen_d",
+```
+
+저장 위치: `analysis/analysis_log.csv` 또는 `paper_data/analysis/analysis_log.csv`
+**기존 로그에 append** (덮어쓰기 아님).
+
+### 5-2. Summary
 Present results concisely:
 - Key metrics with values and units
 - Statistical significance summary
 - Generated files list (figures + tables)
+- 사용된 입력 파일 목록
 
 Log analysis decisions as learnings (e.g., "Welch's t-test used because unequal variance").
 
-Next step:
+### 5-3. Next Step
 - More analysis → continue or try /skiro-gait for gait-specific
 - Results look good → /skiro-retro for experiment retrospective
 - Need paper figures → refine with specific requests
+- 재분석 필요 → raw 파일 그대로, analysis/ 결과만 다시 생성

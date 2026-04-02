@@ -97,6 +97,165 @@ with h5py.File('data.h5', 'r') as f:
 - Grouped: `/experiment/trial_01/force`, `/experiment/trial_01/imu`
 - Timestamped: `/2024-01-15/trial_1/data`
 
+## MATLAB .mat Data
+
+### Reading .mat Files
+```python
+# For .mat v5 (MATLAB ≤ 7.2) — use scipy
+import scipy.io
+mat = scipy.io.loadmat('data.mat')
+# mat is a dict: keys = variable names, values = numpy arrays
+# Skip metadata keys starting with '__'
+for key in mat:
+    if not key.startswith('__'):
+        print(f"{key}: shape={mat[key].shape}, dtype={mat[key].dtype}")
+
+# For .mat v7.3 (HDF5-based, MATLAB ≥ 7.3) — use h5py
+import h5py
+with h5py.File('data.mat', 'r') as f:
+    for key in f.keys():
+        print(f"{key}: shape={f[key].shape}")
+    data = f['force'][:]  # Load into numpy array
+```
+
+### Common .mat Structures in Biomechanics
+| Variable pattern | Meaning | Shape |
+|-----------------|---------|-------|
+| `data` or `trial_data` | Main data matrix | (N_samples, N_channels) |
+| `time` or `t` | Timestamp vector | (N_samples, 1) |
+| `labels` or `ch_names` | Channel names | (1, N_channels) cell array |
+| `fs` or `Fs` or `srate` | Sample rate (Hz) | scalar |
+| `events` or `markers` | Event timestamps | (N_events, 1) |
+
+### .mat → CSV Conversion
+```python
+import scipy.io
+import pandas as pd
+import numpy as np
+
+mat = scipy.io.loadmat('data.mat')
+data = mat['data']  # (N, M) array
+# Channel names: .mat stores as nested array
+labels = [str(l[0]) for l in mat['labels'][0]]
+df = pd.DataFrame(data, columns=labels)
+df.to_csv('data.csv', index=False)
+```
+
+### Pitfalls
+- MATLAB 1-indexed → Python 0-indexed (event timestamps!)
+- `.mat` cell arrays become nested numpy object arrays
+- `.mat v7.3` requires h5py, NOT scipy.io.loadmat
+- Strings in `.mat` are stored as uint16 arrays (decode needed)
+
+## EDF/BDF (European Data Format / BioSemi Data Format)
+
+Standard formats for biosignal recording (EMG, EEG, EOG).
+EDF = 16-bit, BDF = 24-bit (higher resolution).
+
+### Reading EDF/BDF
+```python
+# Requires: pip install mne  (or pip install pyedflib)
+import mne
+
+# MNE (recommended — handles both EDF and BDF)
+raw = mne.io.read_raw_edf('data.edf', preload=True)  # or read_raw_bdf
+print(f"Channels: {raw.ch_names}")
+print(f"Sample rate: {raw.info['sfreq']} Hz")
+print(f"Duration: {raw.times[-1]:.1f} s")
+
+# Get data as numpy array
+data = raw.get_data()  # shape: (n_channels, n_samples)
+times = raw.times       # shape: (n_samples,)
+
+# Extract specific channels
+emg_data = raw.copy().pick_channels(['EMG1', 'EMG2']).get_data()
+```
+
+### Alternative: pyedflib (lighter than MNE)
+```python
+import pyedflib
+f = pyedflib.EdfReader('data.edf')
+n_channels = f.signals_in_file
+labels = f.getSignalLabels()
+fs = [f.getSampleFrequency(i) for i in range(n_channels)]
+# Note: EDF allows different sample rates per channel!
+signals = [f.readSignal(i) for i in range(n_channels)]
+f.close()
+```
+
+### EDF/BDF Characteristics
+| Feature | EDF | BDF |
+|---------|-----|-----|
+| Resolution | 16-bit | 24-bit |
+| Extension | `.edf` | `.bdf` |
+| Max channels | 256 (header limited) | 256 |
+| Per-channel sample rate | Yes (different per channel) | Yes |
+| Annotations | EDF+ only | BDF+ only |
+
+### EDF → CSV Conversion
+```python
+import mne
+import pandas as pd
+
+raw = mne.io.read_raw_edf('data.edf', preload=True)
+df = pd.DataFrame(raw.get_data().T, columns=raw.ch_names)
+df.insert(0, 'time_s', raw.times)
+df.to_csv('data.csv', index=False)
+```
+
+## MCAP (ROS 2 Modern Log Format)
+
+MCAP is the default recording format for ROS 2 (replacing db3).
+High-performance, self-contained, supports multiple serializations.
+
+### Reading MCAP
+```python
+# Requires: pip install mcap mcap-ros2-support
+from mcap_ros2.reader import read_ros2_messages
+
+# List topics and message counts
+from mcap.reader import make_reader
+with open('data.mcap', 'rb') as f:
+    reader = make_reader(f)
+    summary = reader.get_summary()
+    for channel_id, channel in summary.channels.items():
+        schema = summary.schemas[channel.schema_id]
+        print(f"  {channel.topic} [{schema.name}]")
+
+# Read messages from specific topic
+for msg in read_ros2_messages('data.mcap', topics=['/imu/data']):
+    imu = msg.ros_msg
+    print(f"t={msg.log_time_ns/1e9:.3f} "
+          f"ax={imu.linear_acceleration.x:.3f}")
+```
+
+### MCAP → CSV Conversion
+```python
+from mcap_ros2.reader import read_ros2_messages
+import pandas as pd
+
+rows = []
+for msg in read_ros2_messages('data.mcap', topics=['/joint_states']):
+    js = msg.ros_msg
+    row = {'time_ns': msg.log_time_ns}
+    for i, name in enumerate(js.name):
+        row[f'{name}_pos'] = js.position[i]
+        row[f'{name}_vel'] = js.velocity[i]
+        row[f'{name}_eff'] = js.effort[i]
+    rows.append(row)
+df = pd.DataFrame(rows)
+df.to_csv('joint_states.csv', index=False)
+```
+
+### MCAP vs db3
+| Feature | MCAP | SQLite db3 |
+|---------|------|-----------|
+| Performance | Fast (memory-mapped) | Slower (SQL queries) |
+| File size | Smaller (compression) | Larger |
+| Self-contained | Yes (schema embedded) | Needs metadata.yaml |
+| Seeking | O(1) indexed | O(n) scan |
+| ROS 2 default | Humble+ | Foxy/Galactic |
+
 ## Serial Data Capture
 
 ### Basic Pattern (pyserial)

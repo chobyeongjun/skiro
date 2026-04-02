@@ -1,0 +1,22 @@
+[
+  {"query": "BLE로 로봇이랑 연결하는 코드 짜줘", "should_trigger": true},
+  {"query": "bleak으로 Nano 33 BLE에 연결하고 싶어", "should_trigger": true},
+  {"query": "로봇 통신이 자꾸 끊겨", "should_trigger": true},
+  {"query": "WiFi TCP 소켓으로 모터 명령 보내려고", "should_trigger": true},
+  {"query": "시리얼 통신 데이터 파싱하는 코드", "should_trigger": true},
+  {"query": "MQTT로 센서 데이터 수신하고 싶어", "should_trigger": true},
+  {"query": "BLE notify가 안 옴", "should_trigger": true},
+  {"query": "pyserial로 Teensy랑 통신", "should_trigger": true},
+  {"query": "패킷 프로토콜 설계해줘 (header + checksum)", "should_trigger": true},
+  {"query": "BLE QThread 패턴으로 GUI에 연결해줘", "should_trigger": true},
+  {"query": "React로 대시보드 만들어줘", "should_trigger": false},
+  {"query": "CSV 데이터 분석해줘", "should_trigger": false},
+  {"query": "모터 토크 제한 확인해줘", "should_trigger": false},
+  {"query": "실험 프로토콜 작성해줘", "should_trigger": false},
+  {"query": "펌웨어 업로드해줘", "should_trigger": false},
+  {"query": "보행 분석 GCP 계산해줘", "should_trigger": false},
+  {"query": "NaN 값 확인하고 데이터 정리해줘", "should_trigger": false},
+  {"query": "GUI 레이아웃 수정해줘 (왼쪽으로 옮겨)", "should_trigger": false},
+  {"query": "UDP 소켓으로 로봇에 실시간 제어 명령 스트리밍", "should_trigger": true},
+  {"query": "보드레이트 115200으로 시리얼 포트 열어줘", "should_trigger": true}
+]

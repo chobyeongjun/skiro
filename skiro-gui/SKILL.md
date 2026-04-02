@@ -165,6 +165,212 @@ btn.setStyleSheet("""
 """)
 ```
 
+### Dear ImGui (Python: pyimgui)
+
+Immediate-mode GUI — redraws every frame. No layout managers;
+position and size are set per-frame. Best for fast prototyping and
+debug overlays. NOT recommended for polished end-user GUIs.
+
+```python
+"""Dear ImGui robot dashboard. Requires: pip install imgui[glfw]"""
+import imgui
+from imgui.integrations.glfw import GlfwRenderer
+import glfw
+import OpenGL.GL as gl
+
+def init_imgui():
+    if not glfw.init():
+        raise RuntimeError("GLFW init failed")
+    window = glfw.create_window(1280, 720, "Robot Dashboard", None, None)
+    glfw.make_context_current(window)
+    imgui.create_context()
+    impl = GlfwRenderer(window)
+    return window, impl
+
+def main():
+    window, impl = init_imgui()
+    # State variables (mutable — imgui reads/writes these)
+    motor_cmd = [0.0]
+    streaming = [False]
+
+    while not glfw.window_should_close(window):
+        glfw.poll_events()
+        impl.process_inputs()
+        imgui.new_frame()
+
+        # --- Robot Control Panel ---
+        imgui.begin("Motor Control")
+        changed, motor_cmd[0] = imgui.slider_float(
+            "Torque (Nm)", motor_cmd[0], -10.0, 10.0)
+        if changed:
+            pass  # send_command(motor_cmd[0])
+        _, streaming[0] = imgui.checkbox("Stream Data", streaming[0])
+        if imgui.button("E-STOP", width=200, height=50):
+            pass  # emergency_stop()
+        imgui.end()
+
+        # --- Sensor Plot ---
+        imgui.begin("Sensor Data")
+        # imgui.plot_lines for simple inline plot
+        import array
+        data = array.array('f', [0.0] * 100)  # replace with real data
+        imgui.plot_lines("Force", data, graph_size=(0, 80))
+        imgui.end()
+
+        # Render
+        imgui.render()
+        gl.glClear(gl.GL_COLOR_BUFFER_BIT)
+        impl.render(imgui.get_draw_data())
+        glfw.swap_buffers(window)
+
+    impl.shutdown()
+    glfw.terminate()
+```
+
+#### ImGui + BLE Data Thread
+```python
+import threading
+
+# Shared state (lock-free for single-writer patterns)
+sensor_data = {'force': 0.0, 'position': 0.0, 'connected': False}
+
+def ble_thread(address):
+    """Background thread: receive BLE data, update shared dict."""
+    import asyncio
+    loop = asyncio.new_event_loop()
+    # ... bleak connection (see /skiro-comm Phase 1)
+    # In callback: sensor_data['force'] = parsed_value
+
+# In imgui render loop:
+# imgui.text(f"Force: {sensor_data['force']:.1f} N")
+```
+
+#### ImGui Pros/Cons for Robot GUI
+| Pro | Con |
+|-----|-----|
+| 60 FPS rendering | No persistent widget state |
+| Minimal boilerplate | Manual layout (x, y, w, h) |
+| GPU-accelerated | Ugly without custom styling |
+| Great for debug overlays | Poor text input support |
+| C++ imgui code maps 1:1 | Python bindings lag behind C++ |
+
+### Flutter Desktop (Dart)
+
+Cross-platform desktop GUI for polished robot dashboards.
+Use when the GUI needs to run on Windows + Mac + Linux with native look.
+
+#### Project Setup
+```bash
+flutter create --platforms=linux,macos,windows robot_dashboard
+cd robot_dashboard
+# Add dependencies
+flutter pub add flutter_blue_plus   # BLE
+flutter pub add fl_chart             # Charts
+flutter pub add provider             # State management
+```
+
+#### Sensor Dashboard Widget
+```dart
+// lib/widgets/sensor_card.dart
+import 'package:flutter/material.dart';
+
+class SensorCard extends StatelessWidget {
+  final String label;
+  final double value;
+  final String unit;
+  final double? min;
+  final double? max;
+
+  const SensorCard({
+    required this.label,
+    required this.value,
+    required this.unit,
+    this.min,
+    this.max,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final inRange = (min == null || value >= min!) &&
+                    (max == null || value <= max!);
+    return Card(
+      color: inRange ? Colors.grey[900] : Colors.red[900],
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(
+              color: Colors.white70, fontSize: 12)),
+            const SizedBox(height: 4),
+            Text('${value.toStringAsFixed(1)} $unit',
+              style: const TextStyle(
+                color: Colors.white, fontSize: 24,
+                fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+#### BLE Connection (flutter_blue_plus)
+```dart
+// lib/services/ble_service.dart
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'dart:async';
+
+class BleService {
+  BluetoothDevice? _device;
+  StreamSubscription? _dataSub;
+  final _dataController = StreamController<List<double>>.broadcast();
+  Stream<List<double>> get dataStream => _dataController.stream;
+
+  // Nordic UART Service UUIDs
+  static final _nusService = Guid("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
+  static final _nusTx = Guid("6e400003-b5a3-f393-e0a9-e50e24dcca9e");
+  static final _nusRx = Guid("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
+
+  Future<void> connect(BluetoothDevice device) async {
+    _device = device;
+    await device.connect(autoConnect: true);
+    final services = await device.discoverServices();
+    final nus = services.firstWhere((s) => s.uuid == _nusService);
+    final txChar = nus.characteristics.firstWhere((c) => c.uuid == _nusTx);
+    await txChar.setNotifyValue(true);
+    _dataSub = txChar.onValueReceived.listen(_parseData);
+  }
+
+  void _parseData(List<int> raw) {
+    // Parse "SW19c..." protocol → List<double>
+    final str = String.fromCharCodes(raw);
+    // ... parsing logic
+    _dataController.add([/* parsed values */]);
+  }
+
+  Future<void> disconnect() async {
+    await _dataSub?.cancel();
+    await _device?.disconnect();
+  }
+}
+```
+
+#### Flutter vs PyQt for Robot GUI
+| Aspect | Flutter | PyQt5/6 |
+|--------|---------|---------|
+| Language | Dart | Python |
+| Cross-platform | Win/Mac/Linux/mobile | Win/Mac/Linux |
+| Hot reload | Yes | No |
+| BLE support | flutter_blue_plus | bleak (async) |
+| Real-time plots | fl_chart (60fps) | pyqtgraph (optimized) |
+| Scientific computing | Limited | numpy/scipy native |
+| Packaging | Single binary | pyinstaller/cx_freeze |
+| Learning curve | Moderate (Dart) | Low (Python) |
+
+**Recommendation**: PyQt for research/lab use (Python ecosystem). Flutter for distribution to non-technical users (single binary, polished UI).
+
 ## Phase 4: Design Consistency Check
 
 After layout changes, verify design consistency:
