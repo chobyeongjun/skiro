@@ -36,6 +36,25 @@ gait-specific event detection and temporal-spatial parameter computation.
    If absent: ask for detection method below.
 2. Load learnings for "gait", "stride", "hs", "ho" tags.
 
+AskUserQuestion: "What is your research/clinical question?"
+A) 낙상 위험 평가 (Fall risk assessment)
+B) 보조 장치 효과 평가 (Assistive device evaluation)
+C) 재활 진행 추적 (Rehabilitation progress tracking)
+D) 에너지 효율 분석 (Energy efficiency analysis)
+E) 전체 분석 (Comprehensive — all metrics)
+F) 직접 지정 (I'll specify which metrics)
+
+### Biomechanical Metric Selection Guide
+Based on research question, auto-select the most relevant metrics:
+
+| Research Goal | Priority Metrics | Biomechanical Rationale |
+|--------------|-----------------|----------------------|
+| **낙상 위험** | Stride time CV, toe clearance, double support % | CV >6% = fall risk indicator (Hausdorff et al., 2001). Low toe clearance (<10mm) = trip risk (Winter, 1992). Increased double support = compensatory stability strategy. |
+| **보조 효과** | Symmetry index, stance %, cadence, gait speed | SI quantifies bilateral balance improvement (Robinson et al., 1987). Stance % closer to 60% = normalized loading. Increased cadence/speed = functional improvement. |
+| **재활 추적** | Gait speed, stride length, cadence (longitudinal) | Gait speed is the "6th vital sign" (Fritz & Lusardi, 2009). MCID for gait speed: 0.1-0.2 m/s. Stride length reflects confidence in weight bearing. |
+| **에너지 효율** | Stance/swing ratio, stride time, gait speed | Optimal stance/swing ≈ 60/40 (Perry & Burnfield, 2010). Deviation increases metabolic cost. Self-selected speed minimizes cost of transport. |
+| **전체 분석** | All of the above | Complete temporal-spatial profile for comprehensive assessment. |
+
 AskUserQuestion: "How is gait detected in your system?"
 A) IMU-based (shank/foot angle + angular velocity)
 B) Force sensor / loadcell (vertical force threshold)
@@ -111,6 +130,25 @@ Compute from detected events:
 | Double Support % | (IDS + TDS) / Stride × 100; IDS=HS_ipsi→HO_contra, TDS=HS_contra→HO_ipsi | % |
 | Gait Speed | distance / time (if available) | m/s |
 | Step Length | gait speed × step time (if speed available) | m |
+| Stride Time CV | SD(stride_time) / mean(stride_time) × 100 | % |
+| Gait Speed CV | SD(gait_speed) / mean(gait_speed) × 100 | % |
+| Toe Clearance | min foot height during swing phase (if available) | mm |
+
+### Variability Metrics
+```python
+# Coefficient of Variation — lower = more consistent gait
+stride_cv = np.std(stride_times, ddof=1) / np.mean(stride_times) * 100
+# Interpretation: CV < 3% = healthy adult, 3-6% = mild variability,
+# >6% = high variability (fall risk indicator)
+
+# Toe clearance (requires foot position data during swing)
+# Minimum vertical distance of toe marker during mid-swing (40-60% of swing)
+for stride in strides:
+    swing_data = stride[swing_start:swing_end]
+    mid_swing = swing_data[int(0.4*len(swing_data)):int(0.6*len(swing_data))]
+    toe_clearance = np.min(mid_swing['foot_z'])  # mm
+# Interpretation: healthy ~15-25mm, <10mm = trip risk
+```
 
 ### Symmetry Index
 ```

@@ -1,0 +1,22 @@
+[
+  {"query": "지난 실험 retrospective 해줘. 뭐가 잘못됐는지 정리하고 싶어", "should_trigger": true},
+  {"query": "실험 끝났는데 결과가 이상해. lessons learned 정리해줘", "should_trigger": true},
+  {"query": "what went wrong 분석해줘. 모터가 중간에 멈췄거든", "should_trigger": true},
+  {"query": "실험 결과 요약해서 논문용으로 정리해줘. retro 형식으로", "should_trigger": true},
+  {"query": "오늘 실험 회고 해야 해. 성공한 것, 실패한 것, 개선점", "should_trigger": true},
+  {"query": "지난주 실험 데이터 리뷰하고 교훈 정리해줘", "should_trigger": true},
+  {"query": "paper-ready structured output으로 실험 결과 정리해줘", "should_trigger": true},
+  {"query": "실험 retro 해줘. 센서 노이즈가 예상보다 심했어", "should_trigger": true},
+  {"query": "이번 sprint 실험들 전체적으로 돌아보자. 뭘 배웠는지 정리", "should_trigger": true},
+  {"query": "실험 문제 분석해줘. 왜 tracking error가 이렇게 큰지 원인 파악", "should_trigger": true},
+  {"query": "실험 프로토콜 새로 짜줘", "should_trigger": false},
+  {"query": "데이터 분석해줘. RMSE 계산", "should_trigger": false},
+  {"query": "safety check 해줘", "should_trigger": false},
+  {"query": "GUI 만들어줘", "should_trigger": false},
+  {"query": "펌웨어 플래시해줘", "should_trigger": false},
+  {"query": "하드웨어 테스트 돌려줘", "should_trigger": false},
+  {"query": "gait cycle 분석해줘", "should_trigger": false},
+  {"query": "SD카드에서 데이터 가져와줘", "should_trigger": false},
+  {"query": "FFT 분석해서 주파수 응답 봐줘", "should_trigger": false},
+  {"query": "코드 리뷰해줘. 제어 루프 로직", "should_trigger": false}
+]

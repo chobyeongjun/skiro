@@ -1,9 +1,12 @@
 ---
 name: skiro-retro
 description: |
-  Experiment retrospective: data summary, problem analysis, lessons,
-  paper-ready structured output. Keywords: retrospective, retro,
-  experiment results, what went wrong, lessons learned, paper data. (skiro)
+  Post-experiment retrospective: summarize what happened, analyze problems,
+  extract lessons learned, and format results for papers. Use AFTER an
+  experiment is done — NOT for designing experiments (/skiro-spec) or
+  analyzing raw data (/skiro-analyze).
+  Keywords: retrospective, retro, what went wrong, lessons learned,
+  experiment summary, paper data, post-experiment review. (skiro)
 allowed-tools:
   - Bash
   - Read

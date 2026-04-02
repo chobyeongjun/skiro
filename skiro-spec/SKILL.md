@@ -1,9 +1,13 @@
 ---
 name: skiro-spec
 description: |
-  Design experiment protocols. Conditions, variables, data collection,
-  safety, statistics. Manual invocation only.
-  Keywords: experiment design, protocol, test plan, data collection. (skiro)
+  Design and plan experiment protocols before running experiments.
+  Defines conditions, independent/dependent variables, sample size,
+  data collection plan, safety criteria, and statistical analysis plan.
+  For experiment PLANNING only — NOT for data analysis, retrospectives,
+  or running experiments.
+  Keywords: experiment design, protocol, test plan, study design,
+  sample size, conditions, variables, randomization. (skiro)
 allowed-tools:
   - Bash
   - Read

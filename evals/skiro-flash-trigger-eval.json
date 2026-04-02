@@ -1,0 +1,22 @@
+[
+  {"query": "Teensy 4.1에 펌웨어 업로드해줘", "should_trigger": true},
+  {"query": "코드 빌드하고 플래시해줘. Arduino CLI 사용해", "should_trigger": true},
+  {"query": "STM32에 firmware burn 해야 해", "should_trigger": true},
+  {"query": "MCU 프로그래밍 해줘. 컴파일 후 바로 업로드", "should_trigger": true},
+  {"query": "flash 해줘. Teensy에 올려야 해", "should_trigger": true},
+  {"query": "ESP32에 코드 deploy 해줘", "should_trigger": true},
+  {"query": "firmware upload 해줘. 수정한 코드를 MCU에 넣어야 해", "should_trigger": true},
+  {"query": "빌드하고 보드에 올려줘", "should_trigger": true},
+  {"query": "Arduino Mega에 스케치 업로드해줘", "should_trigger": true},
+  {"query": "platformio로 빌드해서 Teensy에 플래시해줘", "should_trigger": true},
+  {"query": "모터 테스트 스크립트 만들어줘", "should_trigger": false},
+  {"query": "safety check 돌려줘", "should_trigger": false},
+  {"query": "실험 프로토콜 설계해줘", "should_trigger": false},
+  {"query": "CSV 데이터 검증해줘", "should_trigger": false},
+  {"query": "GUI 레이아웃 수정해줘", "should_trigger": false},
+  {"query": "이 펌웨어 코드에서 버그 찾아줘", "should_trigger": false},
+  {"query": "임베디드 C 코드 리팩토링해줘", "should_trigger": false},
+  {"query": "Teensy에서 시리얼 데이터 캡처해줘", "should_trigger": false},
+  {"query": "CAN 통신 프로토콜 구현해줘", "should_trigger": false},
+  {"query": "RMSE 분석해줘", "should_trigger": false}
+]

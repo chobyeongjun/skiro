@@ -1,0 +1,22 @@
+[
+  {"query": "Teensy에 펌웨어 업로드해줘", "should_trigger": true},
+  {"query": "Arduino 코드 컴파일하고 보드에 올려줘", "should_trigger": true},
+  {"query": "STM32에 firmware flash해줘", "should_trigger": true},
+  {"query": "빌드하고 MCU에 deploy해줘", "should_trigger": true},
+  {"query": "코드 수정했으니까 보드에 다시 burn해줘", "should_trigger": true},
+  {"query": "ESP32에 프로그램 올려줘", "should_trigger": true},
+  {"query": "펌웨어 빌드 에러 수정하고 다시 업로드해줘", "should_trigger": true},
+  {"query": "platformio로 빌드하고 플래시해줘", "should_trigger": true},
+  {"query": "Teensy Loader CLI로 hex 파일 업로드해줘", "should_trigger": true},
+  {"query": "수정한 코드 MCU에 프로그래밍해줘", "should_trigger": true},
+  {"query": "모터 안전 검증해줘", "should_trigger": false},
+  {"query": "하드웨어 테스트 코드 만들어줘", "should_trigger": false},
+  {"query": "실험 데이터 분석해줘", "should_trigger": false},
+  {"query": "GUI 만들어줘", "should_trigger": false},
+  {"query": "실험 프로토콜 설계해줘", "should_trigger": false},
+  {"query": "CSV 데이터 검증해줘", "should_trigger": false},
+  {"query": "보행 분석해줘", "should_trigger": false},
+  {"query": "Docker 이미지 빌드하고 배포해줘", "should_trigger": false},
+  {"query": "Python 코드 실행해줘", "should_trigger": false},
+  {"query": "Git push해줘", "should_trigger": false}
+]

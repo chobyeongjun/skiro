@@ -1,0 +1,22 @@
+[
+  {"query": "로봇 제어 GUI 만들어줘 PyQt5로", "should_trigger": true},
+  {"query": "대시보드에 실시간 플롯 추가해줘", "should_trigger": true},
+  {"query": "버튼이 겹쳐서 안 보여, 레이아웃 수정해줘", "should_trigger": true},
+  {"query": "GUI에 다크 테마 적용해줘", "should_trigger": true},
+  {"query": "위젯을 왼쪽으로 옮겨줘", "should_trigger": true},
+  {"query": "사이드바에 collapsible 패널 추가해줘", "should_trigger": true},
+  {"query": "실험 UI에 탭 추가해줘", "should_trigger": true},
+  {"query": "차트가 너무 작아, 크기 키워줘", "should_trigger": true},
+  {"query": "Tkinter로 센서 모니터링 화면 만들어줘", "should_trigger": true},
+  {"query": "GUI 응답이 느려, 스레드 분리해줘", "should_trigger": true},
+  {"query": "React 컴포넌트 스타일링해줘", "should_trigger": false},
+  {"query": "모터 토크 안전 검증해줘", "should_trigger": false},
+  {"query": "펌웨어 업로드해줘", "should_trigger": false},
+  {"query": "실험 데이터 RMSE 분석해줘", "should_trigger": false},
+  {"query": "보행 분석해줘", "should_trigger": false},
+  {"query": "CSS flexbox 레이아웃 수정해줘", "should_trigger": false},
+  {"query": "Figma 디자인 구현해줘", "should_trigger": false},
+  {"query": "하드웨어 테스트해줘", "should_trigger": false},
+  {"query": "데이터 CSV 변환해줘", "should_trigger": false},
+  {"query": "실험 프로토콜 작성해줘", "should_trigger": false}
+]

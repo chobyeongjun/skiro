@@ -1,0 +1,22 @@
+[
+  {"query": "로봇 팔에 AK60 모터 달아서 impedance control 하려는데 세팅 도와줘", "should_trigger": true},
+  {"query": "Teensy 4.1에서 CAN 통신으로 모터 제어하는 코드 작성해줘", "should_trigger": true},
+  {"query": "exoskeleton 실험 프로토콜 작성해야 해", "should_trigger": true},
+  {"query": "IMU 데이터 분석해서 gait cycle 구해줘", "should_trigger": true},
+  {"query": "모터 토크 제한이 안 걸려있는 것 같아, 안전 검증해줘", "should_trigger": true},
+  {"query": "hardware.yaml 만들어줘, T-Motor AK60-6 사용해", "should_trigger": true},
+  {"query": "SD 카드에서 실험 데이터 다운받아서 정리해줘", "should_trigger": true},
+  {"query": "보행 보조 로봇 GUI 만들어줘, PyQt5로", "should_trigger": true},
+  {"query": "PID 게인 튜닝 결과 RMSE 비교해줘", "should_trigger": true},
+  {"query": "펌웨어 컴파일하고 보드에 업로드해줘", "should_trigger": true},
+  {"query": "React로 로그인 페이지 만들어줘", "should_trigger": false},
+  {"query": "Python pandas로 주식 데이터 분석해줘", "should_trigger": false},
+  {"query": "Docker 컨테이너 설정 도와줘", "should_trigger": false},
+  {"query": "Next.js 프로젝트 초기 세팅해줘", "should_trigger": false},
+  {"query": "SQL 쿼리 최적화해줘", "should_trigger": false},
+  {"query": "Git merge conflict 해결해줘", "should_trigger": false},
+  {"query": "AWS Lambda 함수 배포해줘", "should_trigger": false},
+  {"query": "이 논문 요약해줘", "should_trigger": false},
+  {"query": "TypeScript interface 타입 정의해줘", "should_trigger": false},
+  {"query": "CI/CD 파이프라인 만들어줘", "should_trigger": false}
+]

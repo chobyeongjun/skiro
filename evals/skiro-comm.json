@@ -1,0 +1,22 @@
+[
+  {"query": "BLE로 로봇이랑 연결해줘", "should_trigger": true},
+  {"query": "bleak으로 BLE 스캔 코드 작성해줘", "should_trigger": true},
+  {"query": "WiFi TCP로 로봇 데이터 받는 코드 만들어줘", "should_trigger": true},
+  {"query": "MQTT로 센서 데이터 발행하는 코드 짜줘", "should_trigger": true},
+  {"query": "시리얼 통신 프로토콜 설계해줘", "should_trigger": true},
+  {"query": "BLE characteristic UUID가 안 맞는 것 같아", "should_trigger": true},
+  {"query": "로봇이랑 무선 통신이 자꾸 끊겨", "should_trigger": true},
+  {"query": "패킷 구조 설계해줘, 체크섬 포함", "should_trigger": true},
+  {"query": "Bluetooth notify가 안 되는데 왜 그런지 봐줘", "should_trigger": true},
+  {"query": "PyQt GUI에서 BLE 데이터 받는 패턴 알려줘", "should_trigger": true},
+  {"query": "모터 안전 검증해줘", "should_trigger": false},
+  {"query": "펌웨어 업로드해줘", "should_trigger": false},
+  {"query": "보행 분석 GCP 구해줘", "should_trigger": false},
+  {"query": "실험 데이터 RMSE 구해줘", "should_trigger": false},
+  {"query": "GUI 레이아웃 수정해줘", "should_trigger": false},
+  {"query": "데이터 CSV 변환해줘", "should_trigger": false},
+  {"query": "실험 프로토콜 작성해줘", "should_trigger": false},
+  {"query": "hardware.yaml 생성해줘", "should_trigger": false},
+  {"query": "React 앱에 WebSocket 추가해줘", "should_trigger": false},
+  {"query": "REST API 서버 만들어줘", "should_trigger": false}
+]

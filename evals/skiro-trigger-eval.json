@@ -1,0 +1,22 @@
+[
+  {"query": "로봇 코드 도와줘. 모터 제어 관련이야", "should_trigger": true},
+  {"query": "임피던스 제어 구현해줘", "should_trigger": true},
+  {"query": "CAN 통신 코드 작성해줘. AK60 모터용", "should_trigger": true},
+  {"query": "센서 데이터 읽는 코드 짜줘. IMU 가속도계", "should_trigger": true},
+  {"query": "PID 제어기 튜닝 도와줘", "should_trigger": true},
+  {"query": "엑소스켈레톤 프로젝트 시작해야 해. 전체적인 구조 잡아줘", "should_trigger": true},
+  {"query": "로봇 실험 준비해야 해. 뭐부터 하면 될까", "should_trigger": true},
+  {"query": "Teensy 코드에서 제어 루프 최적화해줘", "should_trigger": true},
+  {"query": "force sensor 값이 이상해. 디버깅 도와줘", "should_trigger": true},
+  {"query": "admittance control 구현하려는데 어떤 접근이 좋을까", "should_trigger": true},
+  {"query": "React 컴포넌트 만들어줘", "should_trigger": false},
+  {"query": "SQL 쿼리 최적화해줘", "should_trigger": false},
+  {"query": "Docker compose 설정 도와줘", "should_trigger": false},
+  {"query": "Python Flask API 만들어줘", "should_trigger": false},
+  {"query": "Git merge conflict 해결해줘", "should_trigger": false},
+  {"query": "TypeScript 타입 에러 고쳐줘", "should_trigger": false},
+  {"query": "AWS Lambda 함수 배포해줘", "should_trigger": false},
+  {"query": "데이터베이스 스키마 설계해줘", "should_trigger": false},
+  {"query": "CI/CD 파이프라인 구성해줘", "should_trigger": false},
+  {"query": "Next.js 페이지 라우팅 설정해줘", "should_trigger": false}
+]

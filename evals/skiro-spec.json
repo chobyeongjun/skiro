@@ -1,0 +1,22 @@
+[
+  {"query": "impedance control 실험 프로토콜 설계해줘", "should_trigger": true},
+  {"query": "실험 조건 3가지로 나눠서 test plan 만들어줘", "should_trigger": true},
+  {"query": "데이터 수집 계획 세워줘, 어떤 변수를 기록할지", "should_trigger": true},
+  {"query": "보행 실험 프로토콜 작성해줘", "should_trigger": true},
+  {"query": "통계 분석을 위한 sample size 계산해줘", "should_trigger": true},
+  {"query": "실험 설계에서 독립변수와 종속변수 정리해줘", "should_trigger": true},
+  {"query": "반복 횟수랑 랜덤화 방법 정해줘", "should_trigger": true},
+  {"query": "안전 기준 포함해서 실험 계획 세워줘", "should_trigger": true},
+  {"query": "피험자 동의서 포함된 실험 protocol 만들어줘", "should_trigger": true},
+  {"query": "실험 조건별 데이터 수집 변수 정의해줘", "should_trigger": true},
+  {"query": "실험 데이터 RMSE 분석해줘", "should_trigger": false},
+  {"query": "실험 retrospective 작성해줘", "should_trigger": false},
+  {"query": "모터 안전 검증해줘", "should_trigger": false},
+  {"query": "하드웨어 테스트해줘", "should_trigger": false},
+  {"query": "펌웨어 업로드해줘", "should_trigger": false},
+  {"query": "GUI 만들어줘", "should_trigger": false},
+  {"query": "CSV 데이터 변환해줘", "should_trigger": false},
+  {"query": "보행 cycle에서 heel strike 검출해줘", "should_trigger": false},
+  {"query": "matplotlib 그래프 스타일 수정해줘", "should_trigger": false},
+  {"query": "논문 표 LaTeX로 만들어줘", "should_trigger": false}
+]
