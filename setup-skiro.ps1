@@ -88,7 +88,7 @@ if (-not $UsedGit) {
 
 # ── Step 3: Create flat copies of sub-skill SKILL.md files ───────────
 Write-Host "[2/4] Creating flat skill copies ..."
-$skills = @("safety", "hwtest", "flash", "spec", "retro", "gui", "data", "analyze", "gait", "comm")
+$skills = @("safety", "hwtest", "flash", "plan", "retro", "gui", "data", "analyze", "gait", "comm")
 foreach ($skill in $skills) {
     $flatDir = Join-Path $HOME ".claude\skills\skiro-$skill"
     $sourceFile = Join-Path $SkiroDir "skiro-$skill\SKILL.md"

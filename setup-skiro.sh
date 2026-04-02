@@ -117,7 +117,7 @@ Each skill recommends the next step when it finishes.
 │  └────────────────────────────────────────┘  │
 ├─────────────────────────────────────────────┤
 │  Core Skills                                 │
-│  hwtest │ safety │ flash │ spec │ retro      │
+│  hwtest │ safety │ flash │ plan │ retro      │
 │  gui    │ data                               │
 ├─────────────────────────────────────────────┤
 │  Infrastructure                              │
@@ -2850,7 +2850,7 @@ chmod +x "$SKIRO_DIR/bin/skiro-session" 2>/dev/null || true
 
 # ── Step 4: Create flat copies of sub-skill SKILL.md files ───────────
 echo "[3/4] Creating flat skill copies ..."
-for skill in safety hwtest flash spec retro gui data analyze gait comm; do
+for skill in safety hwtest flash plan retro gui data analyze gait comm; do
   FLAT_DIR="$HOME/.claude/skills/skiro-$skill"
   mkdir -p "$FLAT_DIR"
   if [ -f "$SKIRO_DIR/skiro-$skill/SKILL.md" ]; then
@@ -2880,11 +2880,11 @@ echo " Skiro v${VERSION} installed successfully!"
 echo "============================================"
 echo ""
 echo "Location : $SKIRO_DIR"
-echo "Skills   : 10 (safety hwtest flash spec retro gui data analyze gait comm)"
+echo "Skills   : 10 (safety hwtest flash plan retro gui data analyze gait comm)"
 echo "Binaries : bin/skiro-learnings  bin/skiro-session"
 echo ""
 echo "Flat copies:"
-for skill in safety hwtest flash spec retro gui data analyze gait comm; do
+for skill in safety hwtest flash plan retro gui data analyze gait comm; do
   echo "  ~/.claude/skills/skiro-$skill/SKILL.md"
 done
 echo ""
