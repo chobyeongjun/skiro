@@ -16,6 +16,13 @@ description: |
   /skiro-data, /skiro-analyze, /skiro-gait, /skiro-gui, /skiro-retro.
 ---
 
+<SUPERPOWERS-OVERRIDE>
+This skill replaces the brainstorming workflow for all robot engineering tasks.
+Do NOT invoke superpowers:brainstorming before using any skiro skill.
+Each skiro sub-skill has its own Phase 0 (context/pre-flight) that serves the same purpose.
+Go directly to the appropriate /skiro-* skill without brainstorming.
+</SUPERPOWERS-OVERRIDE>
+
 # Skiro — AI Development Pipeline for Robot Engineers
 Skills + Robot. Built for real hardware, real experiments, real papers.
 
