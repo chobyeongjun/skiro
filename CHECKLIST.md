@@ -49,10 +49,35 @@ Universal safety verification for robot software. Adapt thresholds via hardware.
 - [ ] No magic numbers, all constants named and documented
 - [ ] Coordinate frames documented
 
+### 9. Data Logging Integrity
+- [ ] Log file header written before data rows
+- [ ] Timestamp column increments monotonically
+- [ ] Log flush/sync frequency prevents data loss on power failure
+- [ ] File naming includes date and avoids overwrite of existing files
+- [ ] SD card / storage full condition handled gracefully
+
+### 10. Power and Voltage Safety
+- [ ] Motor driver voltage matches power supply rating
+- [ ] Reverse polarity protection exists or is documented as absent
+- [ ] Brownout / under-voltage detection triggers safe shutdown
+- [ ] Current limiting exists (hardware fuse or software limit)
+
 ## INFO (nice to have)
 
-### 9. Code Quality
+### 11. Code Quality
 - [ ] Functions are single-purpose and testable
 - [ ] Error handling exists (not just happy path)
 - [ ] Logging sufficient for post-experiment debugging
 - [ ] Configuration is external (yaml/json), not hardcoded
+
+### 12. GUI Safety (if applicable)
+- [ ] GUI thread never blocks on hardware communication
+- [ ] Hardware commands sent via dedicated thread/queue, not UI thread
+- [ ] Connection loss displayed clearly in UI (not silent failure)
+- [ ] User confirmation required before destructive operations (motor enable, data delete)
+
+### 13. Experiment Reproducibility
+- [ ] All tunable parameters saved with data (gains, thresholds, modes)
+- [ ] Firmware version or git hash logged at experiment start
+- [ ] hardware.yaml committed in repo alongside experiment data
+- [ ] Random seeds fixed and documented (if applicable)
