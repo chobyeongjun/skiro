@@ -49,14 +49,41 @@ Skiro:  Prior learning: AK60 ID conflict (2026-03-15, confidence 9/10)
 
 ## Installation
 
+### macOS / Linux
+
 ```bash
 git clone https://github.com/chobyeongjun/skiro.git ~/.claude/skills/skiro
 chmod +x ~/.claude/skills/skiro/bin/*
 ```
 
-Windows:
+Or use the installer script:
+```bash
+bash setup-skiro.sh
+```
+
+### Windows (PowerShell)
+
 ```powershell
-git clone https://github.com/chobyeongjun/skiro.git "$env:USERPROFILE\.claude\skills\skiro"
+git clone https://github.com/chobyeongjun/skiro.git "$HOME\.claude\skills\skiro"
+```
+
+Or use the PowerShell installer (auto-downloads if git is unavailable):
+```powershell
+powershell -ExecutionPolicy Bypass -File setup-skiro.ps1
+```
+
+**Windows utility scripts** are in `bin/` with `.ps1` extension:
+```powershell
+# Manage hardware learnings
+pwsh bin/skiro-learnings.ps1 search "motor"
+pwsh bin/skiro-learnings.ps1 add '{"key":"ak60-torque","tags":["motor"],"text":"AK60 max 18Nm"}'
+pwsh bin/skiro-learnings.ps1 list
+pwsh bin/skiro-learnings.ps1 count
+
+# Session handoff
+pwsh bin/skiro-session.ps1 save myproject "Completed motor calibration"
+pwsh bin/skiro-session.ps1 load myproject
+pwsh bin/skiro-session.ps1 list myproject
 ```
 
 ## Hardware Configuration
