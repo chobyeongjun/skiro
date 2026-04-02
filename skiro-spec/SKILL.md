@@ -6,8 +6,9 @@ description: |
   data collection plan, safety criteria, and statistical analysis plan.
   For experiment PLANNING only — NOT for data analysis, retrospectives,
   or running experiments.
-  Keywords: experiment design, protocol, test plan, study design,
-  sample size, conditions, variables, randomization. (skiro)
+  Keywords (EN/KR): experiment design/실험 설계, protocol/프로토콜,
+  test plan/테스트 플랜, 실험 계획, 실험 조건, 독립변수, 종속변수,
+  sample size/표본 크기, 랜덤화, 반복 횟수, 피험자. (skiro)
 allowed-tools:
   - Bash
   - Read

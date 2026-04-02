@@ -7,9 +7,10 @@ description: |
   from MCU or ROS — NOT for web APIs, databases, or business data.
   Use when validating sensor logs, organizing experiment files, converting
   formats, or auditing existing datasets.
-  Keywords: data management, data validation, CSV, ROS bag, HDF5,
-  format conversion, organize, integrity check, sample rate, NaN,
-  experiment data, file naming, dataset audit. (skiro)
+  Keywords (EN/KR): data management/데이터 관리, validation/검증,
+  CSV, ROS bag, HDF5, format conversion/포맷 변환, 데이터 정리,
+  integrity/무결성, sample rate/샘플링 주파수, NaN, 실험 데이터,
+  SD 카드, 다운로드, 파일 정리, 데이터셋. (skiro)
 allowed-tools:
   - Bash
   - Read

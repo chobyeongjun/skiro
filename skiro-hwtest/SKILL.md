@@ -4,8 +4,10 @@ description: |
   Generate and run hardware test scripts for motors, sensors, cameras,
   communication buses. Auto-generates hardware.yaml by searching official
   datasheets online — users just name their hardware, skiro finds the specs.
-  Keywords: hardware test, motor test, sensor test, calibration, wiring,
-  connection test, hardware.yaml, datasheet, setup, configure. (skiro)
+  Keywords (EN/KR): hardware test/하드웨어 테스트, motor test/모터 테스트,
+  sensor test/센서 테스트, calibration/캘리브레이션, wiring/배선,
+  connection test/연결 확인, hardware.yaml, datasheet/데이터시트,
+  setup/셋업/세팅, 하드웨어 설정, 새 프로젝트. (skiro)
 allowed-tools:
   - Bash
   - Read

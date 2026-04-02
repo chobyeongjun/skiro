@@ -9,8 +9,10 @@ description: |
   plotting, collapsible panels, dark theme, and overlap detection.
   Use when building or modifying desktop GUIs for robots, motors, sensors,
   or experiment data visualization. NOT for web apps or mobile apps.
-  Keywords: PyQt, Tkinter, GUI, widget, dashboard, plot, pyqtgraph,
-  real-time, panel, sidebar, collapsible, dark theme, sensor monitor. (skiro)
+  Keywords (EN/KR): PyQt, Tkinter, GUI, widget/위젯, dashboard/대시보드,
+  plot/플롯, pyqtgraph, 실시간, panel/패널, sidebar/사이드바,
+  collapsible/접기, dark theme/다크 테마, 센서 모니터, 레이아웃,
+  버튼, 겹침, 크기 조절, GUI 만들어줘. (skiro)
 allowed-tools:
   - Bash
   - Read

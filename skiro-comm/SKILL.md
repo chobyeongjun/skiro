@@ -7,9 +7,10 @@ description: |
   parsing, and GUI integration patterns (QThread + signal/slot).
   For communication layer only — NOT for GUI layout (/skiro-gui),
   data analysis (/skiro-analyze), or firmware upload (/skiro-flash).
-  Keywords: BLE, Bluetooth, bleak, WiFi, TCP, UDP, MQTT, socket,
-  serial, pyserial, communication, connect, wireless, protocol,
-  packet, notify, characteristic, baud rate. (skiro)
+  Keywords (EN/KR): BLE/블루투스, WiFi/와이파이, serial/시리얼,
+  통신, 무선, 연결, 끊김, bleak, socket/소켓, MQTT, pyserial,
+  protocol/프로토콜, packet/패킷, notify, baud rate/보드레이트,
+  로봇 연결, 데이터 전송, 수신. (skiro)
 allowed-tools:
   - Bash
   - Read

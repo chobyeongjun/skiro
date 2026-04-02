@@ -5,8 +5,9 @@ description: |
   extract lessons learned, and format results for papers. Use AFTER an
   experiment is done — NOT for designing experiments (/skiro-spec) or
   analyzing raw data (/skiro-analyze).
-  Keywords: retrospective, retro, what went wrong, lessons learned,
-  experiment summary, paper data, post-experiment review. (skiro)
+  Keywords (EN/KR): retrospective/회고, retro, what went wrong/뭐가 잘못됐는지,
+  lessons learned/교훈, 실험 결과 정리, paper data/논문 데이터,
+  실험 요약, 문제점 분석, 개선점. (skiro)
 allowed-tools:
   - Bash
   - Read

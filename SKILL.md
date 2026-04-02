@@ -7,10 +7,11 @@ description: |
   desktop GUI development, and experiment retrospectives.
   For physical robot/actuator/sensor projects only — NOT for web apps,
   databases, cloud services, or general software development.
-  Auto-activates on keywords: robot, motor, CAN, firmware, sensor, control
-  loop, impedance, actuator, encoder, PID, IMU, MCU, Teensy, STM32,
-  Arduino, exoskeleton, torque, force limit, watchdog, e-stop, gait,
-  BLE, Bluetooth, bleak.
+  Auto-activates on keywords (EN/KR): robot/로봇, motor/모터, CAN,
+  firmware/펌웨어, sensor/센서, control loop/제어 루프, impedance/임피던스,
+  actuator/액추에이터, encoder/엔코더, PID, IMU, MCU, Teensy, STM32,
+  Arduino/아두이노, exoskeleton/외골격, torque/토크, force limit/힘 제한,
+  watchdog/워치독, e-stop/비상 정지, gait/보행, BLE/블루투스, 통신, 실험.
   Use /skiro-hwtest, /skiro-safety, /skiro-flash, /skiro-comm, /skiro-spec,
   /skiro-data, /skiro-analyze, /skiro-gait, /skiro-gui, /skiro-retro.
 ---

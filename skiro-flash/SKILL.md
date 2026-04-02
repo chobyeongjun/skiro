@@ -4,8 +4,9 @@ description: |
   Build and upload firmware to MCU (Teensy, STM32, Arduino, ESP32).
   Enforces pre-flash safety check and git commit. For embedded firmware
   only — NOT for web deploy, Docker, cloud, or CI/CD deployment.
-  Keywords: flash, firmware upload, MCU program, burn, Teensy upload,
-  platformio, arduino-cli, hex upload, STM32 flash. (skiro)
+  Keywords (EN/KR): flash/플래시, firmware/펌웨어, upload/업로드,
+  빌드, 컴파일, 보드에 올려줘, MCU 프로그래밍, burn, Teensy,
+  platformio, arduino-cli, 펌웨어 업로드. (skiro)
 allowed-tools:
   - Bash
   - Read
