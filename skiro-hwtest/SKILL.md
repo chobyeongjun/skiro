@@ -34,9 +34,15 @@ ls hardware.yaml 2>/dev/null && echo "EXISTS" || echo "MISSING"
 
 ### Step 0a-1: Load prior learnings FIRST (VOICE.md requires this)
 ```bash
+# macOS/Linux
 chmod +x ~/.claude/skills/skiro/bin/skiro-learnings 2>/dev/null || true
 ~/.claude/skills/skiro/bin/skiro-learnings search "hardware" 2>/dev/null || true
 ~/.claude/skills/skiro/bin/skiro-learnings search "test" 2>/dev/null || true
+```
+```powershell
+# Windows
+pwsh "$HOME\.claude\skills\skiro\bin\skiro-learnings.ps1" search "hardware" 2>$null
+pwsh "$HOME\.claude\skills\skiro\bin\skiro-learnings.ps1" search "test" 2>$null
 ```
 
 ### Step 0b: Gather hardware information

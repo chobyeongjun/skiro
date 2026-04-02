@@ -24,9 +24,15 @@ Read VOICE.md before responding. Follow its rules exactly.
    No hardware.yaml: "No hardware.yaml found. Using conservative defaults."
 2. Load relevant learnings:
    ```bash
+   # macOS/Linux
    chmod +x ~/.claude/skills/skiro/bin/skiro-learnings 2>/dev/null || true
    ~/.claude/skills/skiro/bin/skiro-learnings search "safety" 2>/dev/null || true
    ~/.claude/skills/skiro/bin/skiro-learnings search "limit" 2>/dev/null || true
+   ```
+   ```powershell
+   # Windows
+   pwsh "$HOME\.claude\skills\skiro\bin\skiro-learnings.ps1" search "safety" 2>$null
+   pwsh "$HOME\.claude\skills\skiro\bin\skiro-learnings.ps1" search "limit" 2>$null
    ```
    If found: display prior learnings with confidence scores.
 
