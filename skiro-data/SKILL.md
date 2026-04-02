@@ -246,7 +246,7 @@ Log any data issues as learnings via skiro-learnings add.
 Next step suggestions:
 - Data looks clean → /skiro-analyze or /skiro-gait
 - Data has issues → fix and re-validate
-- Need more data → plan next experiment with /skiro-spec
+- Need more data → plan next experiment with /skiro-plan
 - 모든 실험 완료 → Phase 6 (Paper Dataset Curation)
 
 ---

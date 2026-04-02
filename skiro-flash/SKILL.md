@@ -39,7 +39,7 @@ Save session.
 Next step suggestions:
 - Flash successful → /skiro-hwtest to verify hardware behavior
 - Need communication setup → /skiro-comm
-- Ready for experiment → /skiro-spec
+- Ready for experiment → /skiro-plan
 
 ### Auto-Suggestion on Code Changes
 When working outside of /skiro-flash (e.g., editing firmware code), detect

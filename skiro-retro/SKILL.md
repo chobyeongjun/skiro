@@ -6,7 +6,7 @@ description: |
   Creates a structured paper_packet/ folder with PAPER_BRIEF.md, statistics,
   figures, LaTeX tables, and BibTeX — ready to upload to claude.ai Project
   Knowledge for paper writing. Use AFTER experiment + analysis are done —
-  NOT for designing experiments (/skiro-spec) or raw data analysis (/skiro-analyze).
+  NOT for designing experiments (/skiro-plan) or raw data analysis (/skiro-analyze).
   Keywords (EN/KR): retrospective/회고, retro, what went wrong/뭐가 잘못됐는지,
   lessons learned/교훈, 실험 결과 정리, paper data/논문 데이터,
   paper packet/논문 패킷, COWORK, 논문 작성, 실험 요약,
@@ -234,4 +234,4 @@ C) 타겟 저널을 변경하고 싶습니다
 
 ## Phase 7: Session Save + Sync Reminder
 Save session. Remind: git add -A && git commit && git push
-Next: /skiro-spec for next experiment, or COWORK에서 논문 작성 시작.
+Next: /skiro-plan for next experiment, or COWORK에서 논문 작성 시작.
