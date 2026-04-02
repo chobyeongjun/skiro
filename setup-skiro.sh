@@ -39,7 +39,7 @@ if [ "$USED_GIT" = false ]; then
     "$SKIRO_DIR/skiro-safety" \
     "$SKIRO_DIR/skiro-hwtest" \
     "$SKIRO_DIR/skiro-flash" \
-    "$SKIRO_DIR/skiro-spec" \
+    "$SKIRO_DIR/skiro-plan" \
     "$SKIRO_DIR/skiro-retro" \
     "$SKIRO_DIR/skiro-gui" \
     "$SKIRO_DIR/skiro-data" \
@@ -60,7 +60,7 @@ description: |
   loop, impedance, safety, experiment, calibration, force limit, watchdog,
   e-stop, actuator, encoder, PID, IMU, GUI, data, CSV, gait, analysis.
   Use /skiro-safety for code verification, /skiro-hwtest for hardware tests
-  and auto hardware.yaml, /skiro-flash for firmware, /skiro-spec for
+  and auto hardware.yaml, /skiro-flash for firmware, /skiro-plan for
   experiment design, /skiro-retro for retrospectives, /skiro-gui for GUI
   development, /skiro-data for data management, /skiro-analyze for analysis,
   /skiro-gait for gait-specific analysis.
@@ -76,7 +76,7 @@ Skills + Robot. Built for real hardware, real experiments, real papers.
 | /skiro-hwtest | Hardware test + **auto hardware.yaml from datasheets** | New project, new hardware, setup |
 | /skiro-safety | Verify code correctness: limits, watchdog, logic | Before flashing, before experiments |
 | /skiro-flash | Build + upload firmware to MCU | Firmware changes |
-| /skiro-spec | Design experiment protocol | Planning a new experiment |
+| /skiro-plan | Design experiment protocol | Planning a new experiment |
 | /skiro-data | Data collection, validation, organization | Download from robot, validate data |
 | /skiro-analyze | Universal data analysis (RMSE, FFT, stats) | Analyze results, compare conditions |
 | /skiro-gait | Gait analysis (extends /skiro-analyze) | Walking robot / exoskeleton projects |
@@ -89,7 +89,7 @@ Skills + Robot. Built for real hardware, real experiments, real papers.
 ```
                    ┌── /skiro-gui (GUI work, anytime)
                    │
-/skiro-hwtest ────→ /skiro-spec ──→ /skiro-safety ──→ /skiro-flash
+/skiro-hwtest ────→ /skiro-plan ──→ /skiro-safety ──→ /skiro-flash
 (auto hardware.yaml)  (experiment)    (code verify)     (firmware)
                                                            │
                                                       [experiment]
@@ -446,7 +446,7 @@ Skiro:  Prior learning: AK60 ID conflict (2026-03-15, confidence 9/10)
 | `/skiro-hwtest` | Hardware test + **auto hardware.yaml from datasheets** |
 | `/skiro-safety` | Verify code: limits, watchdog, e-stop, timing |
 | `/skiro-flash` | Build + upload firmware (safety gate) |
-| `/skiro-spec` | Design experiment protocol |
+| `/skiro-plan` | Design experiment protocol |
 | `/skiro-data` | Data collection, validation, organization |
 | `/skiro-analyze` | Universal analysis: RMSE, FFT, stats, paper figures |
 | `/skiro-gait` | Gait analysis: GCP, heel strike, cadence, symmetry |
@@ -475,7 +475,7 @@ git clone https://github.com/chobyeongjun/skiro.git "$env:USERPROFILE\.claude\sk
 ```
                    ┌── /skiro-gui (GUI work, anytime)
                    │
-/skiro-hwtest ────→ /skiro-spec ──→ /skiro-safety ──→ /skiro-flash
+/skiro-hwtest ────→ /skiro-plan ──→ /skiro-safety ──→ /skiro-flash
 (auto hardware.yaml)  (experiment)    (code verify)     (firmware)
                                                            │
                                                       [experiment]
@@ -1560,10 +1560,10 @@ Basic communication test after upload. Report PASS/FAIL.
 Save session. Next: /skiro-hwtest to validate.
 ENDOFFILE
 
-  # ── skiro-spec/SKILL.md ───────────────────────────────────────────
-  cat > "$SKIRO_DIR/skiro-spec/SKILL.md" << 'ENDOFFILE'
+  # ── skiro-plan/SKILL.md ───────────────────────────────────────────
+  cat > "$SKIRO_DIR/skiro-plan/SKILL.md" << 'ENDOFFILE'
 ---
-name: skiro-spec
+name: skiro-plan
 description: |
   Design experiment protocols. Conditions, variables, data collection,
   safety, statistics. Manual invocation only.
@@ -1659,7 +1659,7 @@ Suggest figure descriptions and BibTeX keys.
 
 ## Phase 7: Session Save + Sync Reminder
 Save session. Remind: git add -A && git commit && git push
-Next: /skiro-spec for next experiment.
+Next: /skiro-plan for next experiment.
 ENDOFFILE
 
   # ── skiro-gui/SKILL.md ────────────────────────────────────────────
@@ -2104,7 +2104,7 @@ Log any data issues as learnings via skiro-learnings add.
 Next step suggestions:
 - Data looks clean → /skiro-analyze or /skiro-gait
 - Data has issues → fix and re-validate
-- Need more data → plan next experiment with /skiro-spec
+- Need more data → plan next experiment with /skiro-plan
 ENDOFFILE
 
   # ── skiro-analyze/SKILL.md ────────────────────────────────────────
@@ -2540,7 +2540,7 @@ ENDOFFILE
 ]
 ENDOFFILE
 
-  cat > "$SKIRO_DIR/evals/skiro-spec.json" << 'ENDOFFILE'
+  cat > "$SKIRO_DIR/evals/skiro-plan.json" << 'ENDOFFILE'
 [
   {"query": "impedance control 실험 프로토콜 설계해줘", "should_trigger": true},
   {"query": "실험 조건 3가지로 나눠서 test plan 만들어줘", "should_trigger": true},
@@ -2565,7 +2565,7 @@ ENDOFFILE
 ]
 ENDOFFILE
 
-  cat > "$SKIRO_DIR/evals/skiro-spec-trigger-eval.json" << 'ENDOFFILE'
+  cat > "$SKIRO_DIR/evals/skiro-plan-trigger-eval.json" << 'ENDOFFILE'
 [
   {"query": "보행 실험 프로토콜 설계해줘. 5명 피험자, 3가지 조건", "should_trigger": true},
   {"query": "실험 계획서 작성해줘. 독립변수 종속변수 정리 필요해", "should_trigger": true},

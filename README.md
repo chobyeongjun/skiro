@@ -44,7 +44,7 @@ Skiro:  Prior learning: AK60 ID conflict (2026-03-15, confidence 9/10)
 | `/skiro-safety` | Verify code: limits, watchdog, e-stop, timing |
 | `/skiro-hwtest` | Generate + run hardware test scripts |
 | `/skiro-flash` | Build + upload firmware (safety gate) |
-| `/skiro-spec` | Design experiment protocol |
+| `/skiro-plan` | Design experiment protocol |
 | `/skiro-retro` | Experiment retrospective + paper data |
 
 ## Installation

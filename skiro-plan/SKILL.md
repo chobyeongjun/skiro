@@ -1,5 +1,5 @@
 ---
-name: skiro-spec
+name: skiro-plan
 description: |
   Design and plan experiment protocols before running experiments.
   Defines conditions, independent/dependent variables, sample size,
