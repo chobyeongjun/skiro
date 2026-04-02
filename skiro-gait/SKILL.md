@@ -31,6 +31,9 @@ This skill extends /skiro-analyze. For general metrics (RMSE, FFT, condition
 comparison, LaTeX tables), use /skiro-analyze directly. This skill adds
 gait-specific event detection and temporal-spatial parameter computation.
 
+**Inherits /skiro-analyze Data Safety Rules:**
+raw 파일 수정 금지, 결과는 analysis/에 저장, 덮어쓰기 전 확인, analysis_log.csv 기록.
+
 ## Phase 0: Context
 
 1. Read hardware.yaml — look for `gait:` section.
@@ -175,9 +178,48 @@ Normalize each stride to 0–100% of gait cycle:
 This creates the classic "gait cycle profile" for any variable
 (force, angle, velocity, GCP, etc.).
 
-## Phase 5: Statistical Analysis + Paper Output
+## Phase 5: Data Verification Before Figures
 
-Use /skiro-analyze patterns for statistics:
+**MANDATORY** — do NOT generate any figures until this phase is complete.
+
+### 5-1. Data Semantics Check
+For each column to be plotted, verify with user:
+
+| Question | Example |
+|----------|---------|
+| 물리적 의미 | Pitch = 절대 방향? 상대 관절각? 센서 로컬? |
+| 좌표계/부호 규약 | 양수 = 배측굴곡? 저측굴곡? 시계방향? |
+| 단위 | deg, rad, N, N·m, m/s² |
+| 센서 부착 위치 | shank, foot, thigh, trunk |
+| 기준점 (zero) | 직립 시 0°? 센서 캘리브 기준? |
+
+AskUserQuestion (show summary table of all columns to be plotted):
+"다음 데이터의 물리적 의미가 맞습니까? 수정할 항목이 있으면 알려주세요."
+
+### 5-2. Visualization Direction Agreement
+Before generating figures, present a visualization plan:
+
+1. **What to plot**: list each figure with X-axis, Y-axis, and what each line/band represents
+2. **Expected shape**: describe the expected pattern if the data is correct
+   - e.g., "GCP-normalized ankle angle should show dorsiflexion peak at ~50% stance"
+3. **Axis labels and units**: confirm exact labels
+4. **Clinical/engineering interpretation**: what would "good" vs "bad" look like?
+
+AskUserQuestion: "이 시각화 방향으로 진행할까요?"
+A) 좋습니다, 진행 (Proceed)
+B) 수정 필요 (Need changes — specify)
+
+Only after user confirms: proceed to Phase 6.
+
+### 5-3. Quick Sanity Plot (Optional)
+If data semantics are uncertain, generate a quick raw data plot first:
+- 1 stride only, raw values, no normalization
+- Let user visually confirm the pattern makes sense
+- If pattern is unexpected → re-check sensor orientation, coordinate system, or column mapping
+
+## Phase 6: Statistical Analysis + Paper Output
+
+Use /skiro-analyze patterns for statistics (only after Phase 5 data verification):
 - Condition comparison: paired t-test or Wilcoxon (per parameter)
 - Effect size: Cohen's d
 - Generate comparison table (mean ± SD, p-value, significance)
@@ -200,7 +242,7 @@ Suggest relevant references based on analysis type:
 - Symmetry index: Robinson et al., 1987
 - GCP normalization: Kirtley, "Clinical Gait Analysis"
 
-## Phase 6: Summary + Next Step
+## Phase 7: Summary + Next Step
 
 Report:
 - Strides analyzed: N per side
