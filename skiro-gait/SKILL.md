@@ -8,9 +8,11 @@ description: |
   gait cycle normalization of force/position/angle profiles, and symmetry
   analysis. Supports IMU-based, force-based, and camera-based gait detection.
   Generates paper-ready gait parameter tables and normalized profile figures.
-  Keywords: gait, GCP, heel strike, heel off, stride, cadence, stance, swing,
-  step time, gait cycle, walking, exoskeleton, treadmill, overground,
-  symmetry index, double support, gait speed, normalization. (skiro)
+  Keywords (EN/KR): gait/보행, GCP, heel strike/힐 스트라이크,
+  heel off, stride/스트라이드, cadence/케이던스, stance/입각기,
+  swing/유각기, 보행 주기, walking/걷기, exoskeleton/외골격,
+  treadmill/트레드밀, symmetry/대칭성, double support/양하지 지지,
+  gait speed/보행 속도, 정규화, 보행 분석. (skiro)
 allowed-tools:
   - Bash
   - Read

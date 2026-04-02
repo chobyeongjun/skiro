@@ -8,9 +8,10 @@ description: |
   For robot/sensor/actuator data only — NOT for business analytics, stock
   data, or web metrics. For gait-specific analysis (GCP, heel strike,
   stride time), use /skiro-gait instead.
-  Keywords: RMSE, tracking error, bandwidth, FFT, PSD, force, torque,
-  t-test, ANOVA, matplotlib, LaTeX, paper figure, condition comparison,
-  robot data, control performance, effect size. (skiro)
+  Keywords (EN/KR): RMSE, tracking error/추적 오차, bandwidth/대역폭,
+  FFT, PSD, force/힘, torque/토크, t-test, ANOVA, matplotlib,
+  LaTeX, 논문 그래프, 조건 비교, 데이터 분석, 통계, 효과 크기,
+  제어 성능, 주파수 분석. (skiro)
 allowed-tools:
   - Bash
   - Read

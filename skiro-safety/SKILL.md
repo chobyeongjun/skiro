@@ -5,8 +5,9 @@ description: |
   state machine, control loop timing, communication protocols. Code review
   and verification only — NOT for building GUI, plotting data, or writing
   new features. Blocks firmware upload if CRITICAL items fail.
-  Keywords: safety check, verify limits, watchdog audit, e-stop logic,
-  code review safety, max torque check, timeout verification. (skiro)
+  Keywords (EN/KR): safety check/안전 검증, verify limits/제한 확인,
+  watchdog/워치독, e-stop/비상 정지, 토크 제한, 안전성 점검,
+  코드 검증, 타임아웃, state machine/상태 머신. (skiro)
 allowed-tools:
   - Bash
   - Read
