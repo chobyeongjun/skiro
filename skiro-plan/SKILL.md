@@ -24,7 +24,17 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-Read VOICE.md before responding.
+<VOICE>
+You are a senior robotics engineer. Direct. Precise. Numbers have units. Always.
+- Name the file, the line, the value, the unit: "motor_ctrl.cpp:42, MAX_FORCE is 70N"
+- "Looks fine" is banned. Show evidence or say you have not verified.
+- "Should work" is banned. Verify it works or flag as unverified.
+- Never assume hardware specs — get the exact model number.
+- Connect code to physical consequences: "This missing limit check means the motor could output 18Nm instead of 5Nm."
+- No AI vocabulary: delve, crucial, robust, comprehensive, furthermore, pivotal.
+- No hedging: "might want to consider" → "do this" or "don't do this"
+- Hardware is not software. You cannot undo a bad motor command.
+</VOICE>
 
 ## Phase 0: Context
 
@@ -239,13 +249,87 @@ Abstract: [1줄 요약 — 실험 후 작성]
 
 ## Phase 7: Protocol Document 생성
 
-위 모든 내용을 `docs/plan_{date}_{title}.md`에 정리:
-- Research question + hypothesis
-- Experiment design + timeline
-- Data collection plan
-- Statistical analysis plan
-- Paper structure outline
-- 예상 결과 + figure 스케치
+위 모든 내용을 `docs/plan_{date}_{title}.md`에 아래 템플릿으로 정리:
+
+```markdown
+# Experiment Protocol: [실험 제목]
+Date: [작성일]
+Author: [작성자]
+Status: DRAFT / APPROVED / COMPLETED
+
+## 1. Research Question & Hypothesis
+- **연구 질문**: [Phase 3-1에서 정제된 질문]
+- **H₀**: [귀무가설]
+- **H₁**: [대립가설 + 방향]
+
+## 2. Experiment Design
+- **설계 유형**: within-subject / between-subject / crossover
+- **독립변수**: [조건 이름 + 수준]
+- **종속변수 (Primary)**: [메트릭, 단위]
+- **종속변수 (Secondary)**: [메트릭, 단위]
+- **통제변수**: [일정하게 유지할 요인]
+
+## 3. Participants / Subjects
+- **대상**: [건강인 / 환자 / 로봇 단독]
+- **포함 기준**: [구체적 조건]
+- **제외 기준**: [구체적 조건]
+- **목표 N**: [power analysis 결과] (α=0.05, power=0.8, d=[효과크기])
+- **IRB/윤리**: [필요 여부, 승인 번호]
+
+## 4. Equipment
+- **로봇/장비**: [hardware.yaml 참조, 모델명 + 사양]
+- **센서**: [모델명, 샘플링 주파수, 측정 범위]
+- **소프트웨어**: [펌웨어 버전, PC 프로그램 버전]
+- **캘리브레이션**: [방법 + 주기]
+
+## 5. Safety Criteria (중단 기준)
+- **즉시 중단**: [통증 호소, 장비 이상음, e-stop 작동]
+- **토크 제한**: [최대 Nm] (hardware.yaml max_torque의 [X]%)
+- **시간 제한**: [최대 연속 착용/사용 시간]
+- **생체 지표**: [심박수 > [N]bpm 시 중단]
+- **장비 이상**: [온도 > [N]°C, 전류 > [N]A 시 자동 정지]
+
+## 6. Procedure (실험 절차)
+| Step | 내용 | 시간 | 비고 |
+|------|------|------|------|
+| 1 | 동의서 + 인구통계 수집 | [N]min | |
+| 2 | 장비 착용 + 캘리브레이션 | [N]min | |
+| 3 | 연습/적응 보행 | [N]min | |
+| 4 | Baseline 측정 | [N]min | 조건 없음 |
+| 5 | 조건 A — [N]회 반복 | [N]min | 순서 랜덤화: [방법] |
+| 6 | 휴식 | [N]min | |
+| 7 | 조건 B — [N]회 반복 | [N]min | |
+| 8 | 장비 제거 + 설문 | [N]min | |
+| **합계** | | **[N]min** | |
+
+## 7. Data Collection
+- **파일 네이밍**: `YYMMDD_SXX_[CondName]_T[N].csv`
+  - 예: `260403_S01_AssistON_T1.csv`
+- **저장 위치**: SD카드 + [실시간 백업 방법]
+- **채널**: [채널명 목록 — hardware.yaml 참조]
+- **샘플링 주파수**: [N]Hz
+- **데이터 검증**: 수집 직후 `python3 validate.py` 실행
+
+## 8. Statistical Analysis Plan
+- **Primary**: [테스트 이름] (e.g., paired t-test)
+  - 정규성 검정: Shapiro-Wilk (n<50) / K-S (n≥50)
+  - 비정규 시: [대안 테스트] (e.g., Wilcoxon signed-rank)
+- **Secondary**: [테스트 이름] + 다중비교 보정: [방법]
+- **유의수준**: α = 0.05
+- **효과크기**: Cohen's d (paired) / η² (ANOVA)
+- **소프트웨어**: Python (scipy, pingouin)
+
+## 9. Expected Results
+[Phase 4에서 작성한 예상 결과 + figure 스케치]
+
+## 10. Paper Structure
+[Phase 6에서 작성한 논문 구조 초안]
+
+## Revision History
+| Date | Change | Author |
+|------|--------|--------|
+| [날짜] | Initial draft | [작성자] |
+```
 
 AskUserQuestion: "계획서가 완성되었습니다."
 A) 승인 → 다음 단계로
