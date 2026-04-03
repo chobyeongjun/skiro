@@ -1,0 +1,56 @@
+[
+  {
+    "name": "파이프라인 이력 요약 출력",
+    "precondition": "~/.skiro/current-experiment.json + ~/.skiro/last-safety-result 존재",
+    "expected": {
+      "output_contains": "파이프라인 이력",
+      "sections": ["Plan", "Safety", "코드 변경"]
+    },
+    "description": "파이프라인 아티팩트가 있으면 이력 요약이 출력되어야 한다"
+  },
+  {
+    "name": "파이프라인 누락 경고",
+    "precondition": "~/.skiro/current-experiment.json 없음",
+    "expected": {
+      "output_contains": "/skiro-plan 기록 없음"
+    },
+    "description": "실험 컨텍스트 없을 때 누락 경고 표시"
+  },
+  {
+    "name": "문제 자동 learning 저장",
+    "input": "모터가 과열돼서 실험 중단했어",
+    "expected": {
+      "learning_saved": true,
+      "tag": "hw-failure",
+      "confidence_range": [6, 10]
+    },
+    "description": "하드웨어 고장 보고 시 learning이 자동 저장되어야 한다"
+  },
+  {
+    "name": "문제 분류 태깅",
+    "input": "BLE 연결이 자꾸 끊겨서 데이터 손실 발생",
+    "expected": {
+      "tag": "comm-failure",
+      "learning_saved": true
+    },
+    "description": "통신 문제가 comm-failure로 분류되어야 한다"
+  },
+  {
+    "name": "반복 패턴 감지",
+    "precondition": "동일 키워드 learning 3회 이상 존재",
+    "expected": {
+      "pattern_detected": true,
+      "suggests_checklist_addition": true
+    },
+    "description": "3회 이상 반복된 패턴은 CHECKLIST.md 추가를 제안해야 한다"
+  },
+  {
+    "name": "retro 문서 생성",
+    "input": "실험 회고 진행",
+    "expected": {
+      "file_pattern": "docs/retro_*.md",
+      "sections": ["Summary", "Results", "Problems", "Lessons", "Action Items"]
+    },
+    "description": "회고 문서에 필수 섹션이 포함되어야 한다"
+  }
+]

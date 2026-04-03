@@ -33,14 +33,40 @@ You are a senior robotics engineer. Direct. Precise. Numbers have units. Always.
 - Hardware is not software. You cannot undo a bad motor command.
 </VOICE>
 
-## Phase 0: Hardware Discovery + Auto-Config
+## Phase 0: Safety Gate + Hardware Discovery
+
+### Step 0-pre: Safety gate check — MANDATORY
+```bash
+cat ~/.skiro/last-safety-result 2>/dev/null || echo "NO_RESULT"
+```
+
+| Condition | Action |
+|-----------|--------|
+| File missing (`NO_RESULT`) | **BLOCK**. "/skiro-safety를 먼저 실행하세요. 안전 검증 없이 하드웨어 테스트를 진행할 수 없습니다." |
+| `critical > 0` | **BLOCK**. "CRITICAL [N]건 미해결. /skiro-safety로 해결한 뒤 다시 실행하세요." 미해결 항목 목록 출력. |
+| `critical == 0`, `gate == SAFE_TO_FLASH` | **PASS**. "Safety gate 통과. 하드웨어 테스트를 진행합니다." |
+| `critical == 0`, `gate != SAFE_TO_FLASH` | **WARN**. gate 값을 표시하고 진행 여부를 AskUserQuestion으로 확인. |
+
+BLOCK 시 스킬을 즉시 종료한다. Phase 0a로 진행하지 않는다.
 
 ### Step 0a: Check for existing hardware.yaml
 ```bash
 ls hardware.yaml 2>/dev/null && echo "EXISTS" || echo "MISSING"
 ```
-- EXISTS → load it, proceed to Phase 1 (Test Plan)
+- EXISTS → load it, compare against user request (Step 0a-2), then proceed to Phase 1
 - MISSING → start auto-generation workflow below
+
+### Step 0a-2: Cross-check user request vs hardware.yaml
+If hardware.yaml EXISTS and the user named specific hardware in their request:
+- Compare each user-requested component against hardware.yaml entries.
+- **Mismatch** (e.g., user says "BNO055" but yaml has "EBIMU-9DOFV5"):
+  AskUserQuestion:
+  "hardware.yaml에는 [yaml 모델명]이 등록되어 있지만, 요청은 [사용자 모델명]입니다."
+  A) hardware.yaml 기준으로 진행 (기존 장비 테스트)
+  B) [사용자 모델명]으로 hardware.yaml 업데이트 후 진행
+  C) 둘 다 테스트
+- **수량 불일치** (e.g., user says "4개" but yaml has 2): 동일하게 경고.
+- 일치하면 그대로 진행.
 
 ### Step 0a-1: Load prior learnings FIRST
 ```bash

@@ -1,0 +1,56 @@
+[
+  {
+    "name": "safety gate 차단 — result 파일 없음",
+    "precondition": "~/.skiro/last-safety-result 삭제",
+    "expected": {
+      "blocked": true,
+      "message_contains": "/skiro-safety를 먼저 실행하세요"
+    },
+    "description": "safety result 없이 hwtest 실행 시 Phase 0에서 차단"
+  },
+  {
+    "name": "safety gate 차단 — CRITICAL 미해결",
+    "precondition": "~/.skiro/last-safety-result에 critical > 0",
+    "expected": {
+      "blocked": true,
+      "message_contains": "CRITICAL"
+    },
+    "description": "CRITICAL 미해결 시 hwtest 차단"
+  },
+  {
+    "name": "safety gate 통과",
+    "precondition": "~/.skiro/last-safety-result에 critical == 0, gate == SAFE_TO_FLASH",
+    "expected": {
+      "blocked": false,
+      "message_contains": "Safety gate 통과"
+    },
+    "description": "CRITICAL 0이면 hwtest 진행 가능"
+  },
+  {
+    "name": "hardware.yaml 자동 생성 — 모호한 이름 거부",
+    "input": "모터랑 IMU 연결해줘",
+    "expected": {
+      "asks_specificity": true,
+      "example_challenge": "어떤 모델?"
+    },
+    "description": "모호한 하드웨어 이름은 구체적 모델명을 요청해야 한다"
+  },
+  {
+    "name": "hardware.yaml 자동 생성 — 구체적 이름 수용",
+    "input": "AK60-6 x2, BNO055 IMU, Teensy 4.1",
+    "expected": {
+      "proceeds_to_datasheet_search": true,
+      "asks_specificity": false
+    },
+    "description": "구체적 모델명이 주어지면 데이터시트 검색으로 진행"
+  },
+  {
+    "name": "테스트 스크립트 안전 제한",
+    "input": "모터 전체 테스트",
+    "expected": {
+      "max_torque_percent": 50,
+      "has_timeout": true
+    },
+    "description": "모터 테스트는 정격 토크의 50% 이하, 타임아웃 포함"
+  }
+]

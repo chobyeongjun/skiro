@@ -1,0 +1,95 @@
+[
+  {
+    "name": "should-pass 오탐 검증",
+    "input_dir": "tests/should-pass/",
+    "expected": {
+      "critical_count": 0,
+      "gate": "SAFE_TO_FLASH"
+    },
+    "description": "안전한 코드에서 CRITICAL 오탐이 없어야 한다"
+  },
+  {
+    "name": "should-fail 탐지 검증",
+    "input_dir": "tests/should-fail/",
+    "expected": {
+      "critical_count": 10,
+      "gate": "DO_NOT_FLASH"
+    },
+    "description": "10개 버그 파일에서 10개 CRITICAL을 모두 탐지해야 한다"
+  },
+  {
+    "name": "Phase 3 fork — Timing specialist 트리거",
+    "input_dir": "tests/should-fail/",
+    "expected": {
+      "phase3_triggered": true,
+      "specialists_triggered": ["timing"],
+      "reason": "ISR/interrupt/volatile 키워드 감지"
+    },
+    "description": "ISR 키워드 포함 코드에서 Timing specialist가 트리거되어야 한다"
+  },
+  {
+    "name": "Phase 3 fork — Communication specialist 트리거",
+    "input_file": "tests/should-fail/can-id-duplicate.cpp",
+    "expected": {
+      "phase3_triggered": true,
+      "specialists_triggered": ["communication"],
+      "reason": "CAN 통신 패턴 감지"
+    },
+    "description": "CAN 코드에서 Communication specialist가 트리거되어야 한다"
+  },
+  {
+    "name": "Phase 3 fork — Race Condition specialist 트리거",
+    "input_file": "tests/should-fail/race-condition.cpp",
+    "expected": {
+      "phase3_triggered": true,
+      "specialists_triggered": ["race_condition"],
+      "reason": "volatile/atomic 없이 ISR 공유 변수 감지"
+    },
+    "description": "volatile 누락 코드에서 Race Condition specialist가 트리거되어야 한다"
+  },
+  {
+    "name": "Phase 3 스킵 — 소규모 비ISR 코드",
+    "input_file": "tests/should-fail/unsafe-impedance.py",
+    "expected": {
+      "phase3_triggered": false,
+      "reason": "100줄 미만 + ISR/volatile 키워드 없음"
+    },
+    "description": "ISR 없는 소규모 Python 코드에서 Phase 3이 스킵되어야 한다"
+  },
+  {
+    "name": "승격 규칙 — CAN ID + 토크 명령",
+    "input_file": "tests/should-fail/can-id-duplicate.cpp",
+    "expected": {
+      "finding": "CRITICAL↑",
+      "promotion_rule": "CAN ID 충돌 + 모터 토크 명령"
+    },
+    "description": "CAN ID 중복이 WARNING에서 CRITICAL로 승격되어야 한다"
+  },
+  {
+    "name": "승격 규칙 — malloc + RT 루프",
+    "input_file": "tests/should-fail/malloc-in-loop.cpp",
+    "expected": {
+      "finding": "CRITICAL↑",
+      "promotion_rule": "malloc/new + 실시간 제어 루프"
+    },
+    "description": "malloc이 WARNING에서 CRITICAL로 승격되어야 한다"
+  },
+  {
+    "name": "MULTI-SOURCE 태그 부여",
+    "input_dir": "tests/should-fail/",
+    "expected": {
+      "multi_source_findings": true,
+      "min_count": 1
+    },
+    "description": "Phase 2와 Phase 3 모두에서 발견된 이슈에 MULTI-SOURCE 태그가 있어야 한다"
+  },
+  {
+    "name": "범위 규칙 — 컴포넌트 E-stop INFO 하향",
+    "input_file": "tests/should-pass/edge-safe-isr.cpp",
+    "expected": {
+      "estop_severity": "INFO",
+      "reason": "상태 머신 없는 컴포넌트"
+    },
+    "description": "상태 머신 없는 컴포넌트에서 E-stop이 INFO로 하향되어야 한다"
+  }
+]
