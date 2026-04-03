@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SKIRO_HOME="${SKIRO_HOME:-$HOME/.claude/skills/skiro}"
+
+# ── 1. Check skiro installation ────────────────────────────────
+if [ ! -d "$SKIRO_HOME" ]; then
+  printf "skiro가 설치되지 않았습니다. git clone으로 설치할까요? (y/n) "
+  read -r ans
+  case "$ans" in
+    [yY]*) git clone https://github.com/chobyeongjun/skiro.git "$SKIRO_HOME" ;;
+    *) echo "설치를 취소합니다."; exit 1 ;;
+  esac
+fi
+
+# ── 2. Check if already initialized ────────────────────────────
+if [ -d ".skiro" ]; then
+  printf "이미 초기화된 프로젝트입니다. 덮어쓸까요? (y/n) "
+  read -r ans
+  case "$ans" in
+    [yY]*) ;; # continue
+    *) echo "초기화를 취소합니다."; exit 0 ;;
+  esac
+fi
+
+# ── 3. Create project-local directories ────────────────────────
+mkdir -p .skiro/learnings
+
+# ── 4. Copy hardware.yaml.template ─────────────────────────────
+if [ -f "$SKIRO_HOME/hardware.yaml.template" ]; then
+  cp "$SKIRO_HOME/hardware.yaml.template" ./hardware.yaml.template
+else
+  echo "WARNING: hardware.yaml.template을 찾을 수 없습니다 ($SKIRO_HOME)"
+fi
+
+# ── 5. Create/append CLAUDE.md ─────────────────────────────────
+SKIRO_SECTION='# skiro 규칙
+
+- 모터 제어 코드 수정 시 반드시 /skiro-safety 실행
+- hardware.yaml 없는 프로젝트에서는 안전 기본값 사용
+- CHECKLIST.md의 CRITICAL 항목은 예외 없이 적용'
+
+if [ -f "CLAUDE.md" ]; then
+  if ! grep -q "# skiro 규칙" CLAUDE.md; then
+    printf '\n\n%s\n' "$SKIRO_SECTION" >> CLAUDE.md
+  fi
+else
+  printf '%s\n' "$SKIRO_SECTION" > CLAUDE.md
+fi
+
+# ── 6. Update .gitignore ───────────────────────────────────────
+IGNORE_LINES=(".skiro/learnings/" "*.bag" "*.bag.active")
+if [ ! -f ".gitignore" ]; then
+  touch .gitignore
+fi
+for line in "${IGNORE_LINES[@]}"; do
+  grep -qxF "$line" .gitignore 2>/dev/null || echo "$line" >> .gitignore
+done
+
+# ── 7. Print summary ──────────────────────────────────────────
+cat << 'SUMMARY'
+skiro init 완료.
+ - .skiro/ 디렉토리 생성
+ - hardware.yaml.template 복사
+ - CLAUDE.md 업데이트
+ 다음: /skiro-hwtest로 하드웨어 설정을 시작하세요.
+SUMMARY
