@@ -40,6 +40,26 @@ You are a senior robotics engineer. Direct. Precise. Numbers have units. Always.
    ```
    If found: display prior learnings with confidence scores.
 
+3. Load experiment context:
+   ```bash
+   cat .skiro/current-experiment.json 2>/dev/null || echo "NO_EXPERIMENT"
+   ```
+   - If found: display "실험 '{name}'에 대한 안전 검증입니다. 조건: {conditions}"
+   - Cross-check: `safety_requirements` 항목이 Phase 2 체크리스트에 포함되는지 확인
+     예: `"estop_required"` → CRITICAL-1 E-Stop 항목 우선 검증
+   - If `NO_EXPERIMENT`: proceed normally (experiment context is optional)
+   - If gate decision is made (Phase 6), update experiment status:
+     ```bash
+     python3 -c "
+     import json, sys
+     try:
+       with open('.skiro/current-experiment.json') as f: d = json.load(f)
+       d['status'] = 'safety_checked' if sys.argv[1] == 'PASS' else 'safety_blocked'
+       with open('.skiro/current-experiment.json', 'w') as f: json.dump(d, f, indent=2, ensure_ascii=False)
+     except: pass
+     " "PASS_OR_FAIL" 2>/dev/null || true
+     ```
+
 ## Phase 1: Scope Detection — Concrete Grep Patterns
 
 카테고리별로 정확한 패턴으로 검색. 각 패턴의 매칭 결과를 리포트.

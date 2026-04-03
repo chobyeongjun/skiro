@@ -336,6 +336,28 @@ A) 승인 → 다음 단계로
 B) 수정 필요
 C) 처음부터 다시
 
+## Phase Final: Save Experiment Context
+
+Plan 완료 후 실험 컨텍스트를 `.skiro/current-experiment.json`에 저장:
+
+```bash
+mkdir -p .skiro
+cat > .skiro/current-experiment.json << EXPEOF
+{
+  "name": "<experiment_name_snake_case>",
+  "date": "<YYYY-MM-DD>",
+  "hardware": [<list of hardware from protocol>],
+  "conditions": [<list of experimental conditions>],
+  "subjects": <number>,
+  "safety_requirements": [<derived from protocol safety section>],
+  "dependent_variables": [<list>],
+  "status": "planned"
+}
+EXPEOF
+```
+
+Tell user: "실험 컨텍스트가 저장되었습니다. 코드 준비 후 /skiro-safety를 실행하세요."
+
 ## Phase 8: Next Step
 
 계획 완료 후 워크플로우:
