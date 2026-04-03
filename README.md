@@ -50,13 +50,18 @@ Skiro:  Prior learning: AK60 ID conflict (2026-03-15, confidence 9/10)
 ## Installation
 
 ```bash
+# 1. Install skiro globally (once)
 git clone https://github.com/chobyeongjun/skiro.git ~/.claude/skills/skiro
-chmod +x ~/.claude/skills/skiro/bin/*
+
+# 2. Initialize your robot project
+cd your-robot-project
+~/.claude/skills/skiro/bin/skiro-init
 ```
 
 Windows:
 ```powershell
 git clone https://github.com/chobyeongjun/skiro.git "$env:USERPROFILE\.claude\skills\skiro"
+~/.claude/skills/skiro/bin/skiro-init
 ```
 
 ## Hardware Configuration
