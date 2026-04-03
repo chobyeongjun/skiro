@@ -1,0 +1,48 @@
+[
+  {
+    "name": "실험 컨텍스트 JSON 저장",
+    "input": "무릎 임피던스 실험 설계해줘. 피험자 10명, 2조건 비교",
+    "expected": {
+      "file_created": "~/.skiro/current-experiment.json",
+      "required_fields": ["experiment_name", "control_type", "safety_concerns"],
+      "json_valid": true
+    },
+    "description": "실험 설계 결과가 current-experiment.json에 저장되어야 한다"
+  },
+  {
+    "name": "프로토콜 문서 생성",
+    "input": "보행 실험 프로토콜 작성해줘",
+    "expected": {
+      "file_pattern": "docs/protocol_*.md",
+      "sections": ["목적", "피험자", "장비", "절차", "데이터 수집", "안전"]
+    },
+    "description": "프로토콜 문서에 필수 섹션이 포함되어야 한다"
+  },
+  {
+    "name": "안전 우려 사항 포함",
+    "input": "소아 피험자 대상 보조력 실험",
+    "expected": {
+      "safety_concerns_contains": "child_subject",
+      "force_limit_reduction": true
+    },
+    "description": "소아 피험자 키워드 감지 시 safety_concerns에 자동 추가"
+  },
+  {
+    "name": "통계 설계 포함",
+    "input": "2조건 비교 실험, 피험자 10명",
+    "expected": {
+      "statistical_test_mentioned": true,
+      "sample_size_mentioned": true
+    },
+    "description": "실험 설계에 통계 분석 방법과 표본 크기가 명시되어야 한다"
+  },
+  {
+    "name": "learnings 참조",
+    "input": "새 실험 설계",
+    "expected": {
+      "loads_learnings": true,
+      "checks_prior_experiments": true
+    },
+    "description": "기존 learnings를 로드하여 이전 실험 교훈을 참조해야 한다"
+  }
+]
