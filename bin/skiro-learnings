@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
 SKIRO_HOME="${SKIRO_HOME:-$HOME/.skiro}"
 LEARN_DIR="$SKIRO_HOME/learnings"
 mkdir -p "$LEARN_DIR"
@@ -7,47 +8,190 @@ mkdir -p "$LEARN_DIR"
 CMD="${1:-help}"
 shift || true
 
+# ── Helpers ─────────────────────────────────────────────────────
+auto_project() {
+  basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "unknown"
+}
+
+json_escape() {
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g'
+}
+
+# ── Commands ────────────────────────────────────────────────────
 case "$CMD" in
-  search)
-    KEYWORD="${1:-}"
-    [ -z "$KEYWORD" ] && echo "Usage: skiro-learnings search <keyword>" && exit 1
-    grep -ril "$KEYWORD" "$LEARN_DIR"/*.jsonl 2>/dev/null | while read -r f; do
-      grep -i "$KEYWORD" "$f" 2>/dev/null
-    done | sort -t'"' -k4 -r | head -10
-    ;;
+
   add)
-    JSON="${1:-}"
-    [ -z "$JSON" ] && echo "Usage: skiro-learnings add '<json>'" && exit 1
-    TAG=$(echo "$JSON" | grep -o '"tags":\["[^"]*' | sed 's/"tags":\["//' | tr '[:upper:]' '[:lower:]')
-    [ -z "$TAG" ] && TAG="general"
-    FILE="$LEARN_DIR/$TAG.jsonl"
-    KEY=$(echo "$JSON" | grep -o '"key":"[^"]*' | sed 's/"key":"//' || true)
-    if [ -n "$KEY" ] && [ -f "$FILE" ] && grep -q "\"key\":\"$KEY\"" "$FILE" 2>/dev/null; then
-      grep -v "\"key\":\"$KEY\"" "$FILE" > "$FILE.tmp" 2>/dev/null || true
-      mv "$FILE.tmp" "$FILE"
-      echo "Updated: $KEY"
-    fi
-    if ! echo "$JSON" | grep -q '"ts"'; then
-      JSON=$(echo "$JSON" | sed "s/^{/{\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",/")
-    fi
-    echo "$JSON" >> "$FILE"
-    echo "Saved to $FILE"
+    TAG="" CONF="" TEXT="" FILE_REF="" PROJECT=""
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --tag)        TAG="$2"; shift 2 ;;
+        --confidence) CONF="$2"; shift 2 ;;
+        --text)       TEXT="$2"; shift 2 ;;
+        --file)       FILE_REF="$2"; shift 2 ;;
+        --project)    PROJECT="$2"; shift 2 ;;
+        *) shift ;;
+      esac
+    done
+    [ -z "$TAG" ] && echo "Error: --tag required" && exit 1
+    [ -z "$TEXT" ] && echo "Error: --text required" && exit 1
+    [ -z "$CONF" ] && CONF=5
+    [ -z "$PROJECT" ] && PROJECT="$(auto_project)"
+    TAG=$(printf '%s' "$TAG" | tr '[:upper:]' '[:lower:]')
+    TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+    DEST="$LEARN_DIR/$TAG.jsonl"
+    LINE="{\"ts\":\"$TS\",\"tag\":\"$(json_escape "$TAG")\",\"confidence\":$CONF,\"text\":\"$(json_escape "$TEXT")\""
+    [ -n "$FILE_REF" ] && LINE="$LINE,\"file\":\"$(json_escape "$FILE_REF")\""
+    LINE="$LINE,\"project\":\"$(json_escape "$PROJECT")\"}"
+
+    echo "$LINE" >> "$DEST"
+    echo "Saved to $DEST"
     ;;
-  list)
-    for f in "$LEARN_DIR"/*.jsonl; do
+
+  search)
+    KEYWORD="" TAG_FILTER="" MIN_CONF=0
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --tag)            TAG_FILTER="$2"; shift 2 ;;
+        --min-confidence) MIN_CONF="$2"; shift 2 ;;
+        -*)               shift ;;
+        *)                [ -z "$KEYWORD" ] && KEYWORD="$1"; shift ;;
+      esac
+    done
+    [ -z "$KEYWORD" ] && echo "Usage: skiro-learnings search <keyword> [--tag TAG] [--min-confidence N]" && exit 1
+
+    if [ -n "$TAG_FILTER" ]; then
+      FILES="$LEARN_DIR/$(printf '%s' "$TAG_FILTER" | tr '[:upper:]' '[:lower:]').jsonl"
+    else
+      FILES="$LEARN_DIR"/*.jsonl
+    fi
+
+    for f in $FILES; do
       [ -f "$f" ] || continue
-      echo "=== $(basename "$f" .jsonl) ==="
-      cat "$f"; echo ""
+      grep -i "$KEYWORD" "$f" 2>/dev/null || true
+    done | while IFS= read -r line; do
+      CONF=$(printf '%s' "$line" | grep -o '"confidence":[0-9]*' | cut -d: -f2)
+      [ -z "$CONF" ] && CONF=0
+      [ "$CONF" -lt "$MIN_CONF" ] && continue
+      TS_VAL=$(printf '%s' "$line" | grep -o '"ts":"[^"]*"' | cut -d'"' -f4)
+      TAG_VAL=$(printf '%s' "$line" | grep -o '"tag":"[^"]*"' | cut -d'"' -f4)
+      TEXT_VAL=$(printf '%s' "$line" | grep -o '"text":"[^"]*"' | cut -d'"' -f4)
+      FILE_VAL=$(printf '%s' "$line" | grep -o '"file":"[^"]*"' | cut -d'"' -f4 2>/dev/null || true)
+      printf "[%s] conf:%s <%s> %s" "$TAG_VAL" "$CONF" "$TS_VAL" "$TEXT_VAL"
+      [ -n "$FILE_VAL" ] && printf " (%s)" "$FILE_VAL"
+      printf "\n"
     done
     ;;
-  count)
+
+  list)
+    TAG_FILTER=""
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --tag) TAG_FILTER="$2"; shift 2 ;;
+        *) shift ;;
+      esac
+    done
+
     TOTAL=0
     for f in "$LEARN_DIR"/*.jsonl; do
       [ -f "$f" ] || continue
+      FTAG=$(basename "$f" .jsonl)
+      [ -n "$TAG_FILTER" ] && [ "$FTAG" != "$(printf '%s' "$TAG_FILTER" | tr '[:upper:]' '[:lower:]')" ] && continue
+      C=$(wc -l < "$f" | tr -d ' ')
+      TOTAL=$((TOTAL + C))
+      echo "=== $FTAG ($C) ==="
+      while IFS= read -r line; do
+        CONF=$(printf '%s' "$line" | grep -o '"confidence":[0-9]*' | cut -d: -f2)
+        TEXT_VAL=$(printf '%s' "$line" | grep -o '"text":"[^"]*"' | cut -d'"' -f4)
+        printf "  [conf:%s] %s\n" "$CONF" "$TEXT_VAL"
+      done < "$f"
+      echo ""
+    done
+    echo "Total: $TOTAL"
+    ;;
+
+  count)
+    TAG_FILTER=""
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --tag) TAG_FILTER="$2"; shift 2 ;;
+        *) shift ;;
+      esac
+    done
+
+    TOTAL=0
+    for f in "$LEARN_DIR"/*.jsonl; do
+      [ -f "$f" ] || continue
+      FTAG=$(basename "$f" .jsonl)
+      [ -n "$TAG_FILTER" ] && [ "$FTAG" != "$(printf '%s' "$TAG_FILTER" | tr '[:upper:]' '[:lower:]')" ] && continue
       C=$(wc -l < "$f" | tr -d ' ')
       TOTAL=$((TOTAL + C))
     done
     echo "$TOTAL"
     ;;
-  *) echo "skiro-learnings: search <keyword> | add <json> | list | count" ;;
+
+  promote)
+    for f in "$LEARN_DIR"/*.jsonl; do
+      [ -f "$f" ] || continue
+      FTAG=$(basename "$f" .jsonl)
+      grep -o '"text":"[^"]*"' "$f" 2>/dev/null \
+        | cut -d'"' -f4 \
+        | awk '{
+            gsub(/[,.;:!?(){}\[\]\/]/, " ")
+            n = split($0, words, " ")
+            for (i = 1; i <= n; i++) {
+              w = words[i]
+              if (length(w) < 3) next
+              cnt[w]++
+            }
+          }
+          END {
+            for (w in cnt) {
+              if (cnt[w] >= 3) print cnt[w], w
+            }
+          }' \
+        | sort -rn \
+        | while read -r cnt word; do
+            echo "반복 패턴 발견: $word (${cnt}회, tag: $FTAG) → CHECKLIST.md에 추가를 권장합니다"
+          done
+    done
+    ;;
+
+  migrate)
+    COUNT=0
+    for logfile in "$LEARN_DIR"/*.log; do
+      [ -f "$logfile" ] || continue
+      FTAG=$(basename "$logfile" .log)
+      DEST="$LEARN_DIR/$FTAG.jsonl"
+      while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        # Parse: "TIMESTAMP [TAG] confidence:N — TEXT"
+        TS_VAL=$(printf '%s' "$line" | grep -o '^[0-9T:.Z-]*' || echo "")
+        TAG_VAL=$(printf '%s' "$line" | grep -o '\[.*\]' | tr -d '[]' || echo "$FTAG")
+        CONF=$(printf '%s' "$line" | grep -o 'confidence:[0-9]*' | cut -d: -f2 || echo "5")
+        TEXT_VAL=$(printf '%s' "$line" | sed 's/^.* — //' || echo "$line")
+        [ -z "$TS_VAL" ] && TS_VAL=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        [ -z "$CONF" ] && CONF=5
+        TAG_LOW=$(printf '%s' "$TAG_VAL" | tr '[:upper:]' '[:lower:]')
+        echo "{\"ts\":\"$TS_VAL\",\"tag\":\"$TAG_LOW\",\"confidence\":$CONF,\"text\":\"$(json_escape "$TEXT_VAL")\"}" >> "$DEST"
+        COUNT=$((COUNT + 1))
+      done < "$logfile"
+      mv "$logfile" "$logfile.bak"
+    done
+    echo "${COUNT}건 마이그레이션 완료"
+    ;;
+
+  *)
+    cat << 'USAGE'
+skiro-learnings — robot experiment learning tracker
+
+Commands:
+  add --tag TAG --confidence N --text "TEXT" [--file FILE] [--project PROJECT]
+  search KEYWORD [--tag TAG] [--min-confidence N]
+  list [--tag TAG]
+  count [--tag TAG]
+  promote           Find repeated patterns, suggest checklist additions
+  migrate           Convert .log files to .jsonl format
+USAGE
+    ;;
 esac
