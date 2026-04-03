@@ -70,9 +70,7 @@ For each problem: root cause, impact, prevention, priority.
 각 문제에 대해 반드시 실행:
 ```bash
 ~/.claude/skills/skiro/bin/skiro-learnings add \
-  --tag "[카테고리]" \
-  --confidence [1-10] \
-  --text "[한 줄 요약]: [상세 설명]. 발생 조건: [조건]. 해결: [해결 방법 or '미해결']" \
+  '{"tags":["[카테고리]"],"confidence":[1-10],"key":"[고유키]","text":"[카테고리] [한 줄 요약]: [상세 설명]. 발생 조건: [조건]. 해결: [해결 방법 or 미해결]"}' \
   2>/dev/null || true
 ```
 
