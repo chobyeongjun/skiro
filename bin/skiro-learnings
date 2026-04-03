@@ -21,7 +21,7 @@ case "$CMD" in
     TAG=$(echo "$JSON" | grep -o '"tags":\["[^"]*' | sed 's/"tags":\["//' | tr '[:upper:]' '[:lower:]')
     [ -z "$TAG" ] && TAG="general"
     FILE="$LEARN_DIR/$TAG.jsonl"
-    KEY=$(echo "$JSON" | grep -o '"key":"[^"]*' | sed 's/"key":"//')
+    KEY=$(echo "$JSON" | grep -o '"key":"[^"]*' | sed 's/"key":"//' || true)
     if [ -n "$KEY" ] && [ -f "$FILE" ] && grep -q "\"key\":\"$KEY\"" "$FILE" 2>/dev/null; then
       grep -v "\"key\":\"$KEY\"" "$FILE" > "$FILE.tmp" 2>/dev/null || true
       mv "$FILE.tmp" "$FILE"
@@ -34,7 +34,7 @@ case "$CMD" in
     echo "Saved to $FILE"
     ;;
   list)
-    for f in "$LEARN_DIR"/*.jsonl 2>/dev/null; do
+    for f in "$LEARN_DIR"/*.jsonl; do
       [ -f "$f" ] || continue
       echo "=== $(basename "$f" .jsonl) ==="
       cat "$f"; echo ""
@@ -42,7 +42,7 @@ case "$CMD" in
     ;;
   count)
     TOTAL=0
-    for f in "$LEARN_DIR"/*.jsonl 2>/dev/null; do
+    for f in "$LEARN_DIR"/*.jsonl; do
       [ -f "$f" ] || continue
       C=$(wc -l < "$f" | tr -d ' ')
       TOTAL=$((TOTAL + C))
