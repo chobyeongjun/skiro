@@ -1,115 +1,141 @@
-<p align="center">
-  <img src="https://img.shields.io/badge/skiro-v0.1.0-blue?style=for-the-badge" alt="version"/>
-  <img src="https://img.shields.io/badge/platform-Win%20%7C%20Mac%20%7C%20Linux-green?style=for-the-badge" alt="platform"/>
-  <img src="https://img.shields.io/badge/license-MIT-orange?style=for-the-badge" alt="license"/>
-  <img src="https://img.shields.io/badge/Claude%20Code-compatible-blueviolet?style=for-the-badge" alt="claude"/>
-</p>
+# skiro
 
-<h1 align="center">Skiro</h1>
-<p align="center"><strong>AI Development Pipeline for Robot Engineers</strong></p>
-<p align="center"><em>Skills + Robot = Skiro</em></p>
-<p align="center">Stop repeating the same hardware mistakes. Let your AI remember them for you.</p>
+**AI Development Harness for Robot Engineers**
+
+skiro is a Claude Code harness that automatically tracks problems, solutions, and safety analysis during robot/firmware development — without any manual commands.
 
 ---
 
-## What is Skiro?
+## What it does
 
-Skiro turns Claude Code into a **robot-aware development partner**. It knows that
-motors have torque limits, communication buses have timing constraints, and firmware
-uploads cannot be undone.
+When you say *"the motor position jumped"* → Claude records the problem automatically.  
+When you say *"fixed it by sending zero command first"* → Claude links the solution automatically.  
+When the same problem repeats 3 times → Claude suggests adding it to your CHECKLIST.
 
-```
-You:    "Review my motor control code"
-Skiro:  Prior learning: AK60 ID conflict (2026-03-15, confidence 9/10)
-        CRITICAL motor_ctrl.cpp:42 — force limit check missing
-        WARNING  control_loop.cpp:88 — printf blocking call in 111Hz loop
-        PASS     watchdog.cpp:15 — timeout 50ms (verified)
-        -> 1 critical, 1 warning. Fix now?
-```
+No CLI commands. No manual logging. Just talk.
 
-## Features
+---
 
-- **Safety Verification** — Actuator limits, watchdog, e-stop, timing
-- **Learnings System** — Remembers hardware bugs across sessions
-- **Hardware-Aware** — Reads hardware.yaml, verifies code against specs
-- **Model Routing** — Haiku for search, Sonnet for review, Opus for design
-- **Experiment Pipeline** — Design -> Safety -> Test -> Flash -> Retro -> Paper
-- **Session Handoff** — Continue where you left off
-- **Cross-Platform** — Windows, macOS, Linux. No binary dependencies.
-
-## Commands
-
-| Command | What it does |
-|---------|-------------|
-| `/skiro-safety` | Verify code: limits, watchdog, e-stop, timing |
-| `/skiro-hwtest` | Generate + run hardware test scripts |
-| `/skiro-flash` | Build + upload firmware (safety gate) |
-| `/skiro-plan` | Design experiment protocol |
-| `/skiro-retro` | Experiment retrospective + paper data |
-
-## Installation
-
-### macOS / Linux
+## Install
 
 ```bash
-# 1. Install skiro (once)
-git clone https://github.com/chobyeongjun/skiro.git ~/.claude/skills/skiro
+# 1. Clone
+git clone https://github.com/chobyeongjun/skiro ~/skiro
 
-# 2. Initialize your robot project
-cd your-robot-project
-~/.claude/skills/skiro/bin/skiro-init
+# 2. Install MCP dependencies
+cd ~/skiro/bin && npm install
+
+# 3. Add to PATH
+echo 'export PATH="$HOME/skiro/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+
+# 4. Register MCP server (Claude Code)
+claude mcp add skiro -s user -- node ~/skiro/bin/skiro-mcp-server.mjs
 ```
 
-### Windows (Git Bash)
+Verify:
+```bash
+claude mcp list | grep skiro
+# skiro: node ~/skiro/bin/skiro-mcp-server.mjs - ✓ Connected
+```
+
+---
+
+## Add to your project
+
+Add this to `~/.claude/CLAUDE.md` (global) or your project's `CLAUDE.md`:
+
+```markdown
+## skiro Harness
+
+Problem detected ("failed", "error", "not working", "안됐어", "버그") → auto-call skiro_record_problem  
+Solution found ("fixed", "solved", "it worked", "됐어", "해결됐어") → auto-call skiro_record_solution  
+Code file mentioned → auto-call skiro_analyze_complexity  
+Session start → auto-call skiro_list_learnings (last 5)
+
+Report format: one line only. "[?] Recorded: ..." or "[✓] Solution linked: ..."
+```
+
+---
+
+## MCP Tools
+
+| Tool | Auto-trigger |
+|------|-------------|
+| `skiro_record_problem` | bug / failure / unexpected behavior detected |
+| `skiro_record_solution` | fix / solution found in conversation |
+| `skiro_analyze_complexity` | code file mentioned or opened |
+| `skiro_list_learnings` | session start or new task begins |
+
+---
+
+## Complexity scoring
+
+`skiro-complexity` analyzes firmware files and routes safety analysis:
 
 ```bash
-git clone https://github.com/chobyeongjun/skiro.git ~/.claude/skills/skiro
-cd your-robot-project
-~/.claude/skills/skiro/bin/skiro-init
+skiro-complexity firmware/main.c --json
 ```
 
-### Windows (PowerShell)
+| Score | Tier | Loads |
+|-------|------|-------|
+| < 30 | fast | p1-scope, p2-checklist |
+| 30–79 | partial | + p3-fork §A, p4-gate |
+| ≥ 80 | full | all phases + domain skill |
 
-```powershell
-git clone https://github.com/chobyeongjun/skiro.git "$env:USERPROFILE\.claude\skills\skiro"
-cd your-robot-project
-& "$env:USERPROFILE\.claude\skills\skiro\bin\skiro-init.ps1"
+Scoring factors: LOC, ISR count, threads, CAN nodes, motors, RTOS, shared memory, DMA, control algorithms.
+
+---
+
+## Safety gate
+
+No `flash` or `hwtest` proceeds without `.skiro_safety_gate`:
+
+```
+skiro-safety → analysis → PASS → .skiro_safety_gate created → flash allowed
+                        → BLOCK → flash refused
 ```
 
-## Hardware Configuration
+---
 
-Copy `hardware.yaml.example` to your project root as `hardware.yaml`:
+## Learnings
 
-```yaml
-motors:
-  - name: AK60-6
-    interface: CAN
-    max_torque: 18  # Nm
-safety:
-  max_force: 70     # N
-  watchdog_timeout: 100  # ms
+Problems and solutions are stored in `.skiro/learnings.jsonl` per project.
+
+```bash
+skiro-learnings list --last 10
+skiro-learnings search "CAN"
+skiro-learnings promote 3    # show items repeated 3+ times → CHECKLIST candidates
 ```
 
-## Works With
+---
 
-| Tool | Role |
-|------|------|
-| gstack | Brainstorming, code review, dev retrospectives |
-| Superpowers | TDD workflow |
-| Context7 | Live library documentation |
+## Skills
 
-## Philosophy
+| Skill | Purpose |
+|-------|---------|
+| skiro-safety | Code safety analysis (ISR, motor limits, CAN timeout) |
+| skiro-plan | Experiment planning → current-experiment.json |
+| skiro-retro | Session retrospective → learnings |
+| skiro-hwtest | Hardware test procedures |
+| skiro-flash | Firmware flash procedures |
+| skiro-comm | CAN / UART / SPI / ROS2 |
+| skiro-gait | Gait analysis, GDI, phase detection |
+| skiro-data | Signal filtering, logging, visualization |
+| skiro-mocap | VICON, ZED, IMU motion capture |
+| skiro-analyze | Bode plot, control metrics, statistics |
 
-1. Hardware is not software. You cannot undo a bad motor command.
-2. AI should remember your mistakes. Humans forget. Logs don't.
-3. Evidence, not opinions. Every PASS needs a file:line citation.
-4. Simple interface, complex internals. You see PASS/FAIL.
-5. Any robot, any platform. Teensy or STM32, CAN or Serial.
+---
+
+## Requirements
+
+- macOS / Linux / Windows (WSL)
+- Node.js ≥ 18
+- Python 3
+- Claude Code
+
+---
 
 ## License
 
 MIT
-
-## Author
-
-**Cho Byeongjun** — Robot Engineer, ARLAB, Chung-Ang University
