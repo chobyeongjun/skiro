@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# skiro-learnings v1.1 — learnings JSONL 관리
-# Commands: add | list | search | count | promote | migrate
+# skiro-learnings v2.0 — problem-solution pair 교훈 관리
+# Commands: add | solve | list | search | count | promote
 
 LEARNINGS_FILE="${SKIRO_LEARNINGS:-$(pwd)/.skiro/learnings.jsonl}"
 CMD="${1:-help}"
@@ -8,6 +8,7 @@ shift || true
 mkdir -p "$(dirname "$LEARNINGS_FILE")"
 touch "$LEARNINGS_FILE"
 
+# ── add: 문제 발견 시 저장 (solution 없이 시작 가능) ──────────────
 if [[ "$CMD" == "add" ]]; then
   python3 - "$LEARNINGS_FILE" "$@" <<'PYEOF'
 import json, sys
@@ -18,32 +19,112 @@ while i < len(args):
     if args[i].startswith('--') and i+1 < len(args):
         kv[args[i][2:]] = args[i+1]; i += 2
     else: i += 1
-category = kv.get('category', ''); severity = kv.get('severity', 'INFO')
-lesson = kv.get('lesson', '');     context  = kv.get('context', 'manual')
-if not category: sys.exit("ERROR: --category 필수")
-if not lesson:   sys.exit("ERROR: --lesson 필수")
+
+category = kv.get('category', 'process')
+severity = kv.get('severity', 'WARNING')
+problem  = kv.get('problem', kv.get('lesson', ''))
+solution = kv.get('solution', '')
+context  = kv.get('context', '')
+
+if not problem: sys.exit("ERROR: --problem 필수")
+
 entries = []
 for line in open(lf):
     try: entries.append(json.loads(line.strip()))
     except: pass
+
+# 중복: 같은 problem이면 count 증가 + solution 있으면 업데이트
 found = False
 for e in entries:
-    if e.get('lesson') == lesson:
+    if e.get('problem') == problem or e.get('lesson') == problem:
         e['count'] = e.get('count', 1) + 1
         e['last_seen'] = date.today().isoformat()
+        if solution:
+            e['solution'] = solution
+            e['status'] = 'solved'
         found = True
-        print(f"Updated: [{e['severity']}/{e['category']}] count → {e['count']}")
+        status = e.get('status', 'unsolved')
+        print(f"Updated (x{e['count']}): [{status}] {problem[:50]}")
         break
+
 if not found:
-    entries.append({'date': date.today().isoformat(), 'skill': 'manual', 'tier': 'N/A',
-        'category': category, 'severity': severity, 'lesson': lesson,
-        'context': context, 'count': 1})
-    print(f"Added: [{severity}/{category}] {lesson}")
+    status = 'solved' if solution else 'unsolved'
+    entries.append({
+        'date':     date.today().isoformat(),
+        'category': category,
+        'severity': severity,
+        'problem':  problem,
+        'solution': solution,
+        'status':   status,
+        'context':  context,
+        'count':    1
+    })
+    flag = '?' if not solution else '✓'
+    print(f"[{flag}] [{severity}/{category}] {problem[:60]}")
+    if solution:
+        print(f"    → {solution[:60]}")
+
 with open(lf, 'w') as f:
     for e in entries:
         f.write(json.dumps(e, ensure_ascii=False) + '\n')
 PYEOF
 
+# ── solve: 기존 unsolved 항목에 해결책 추가 ──────────────────────
+elif [[ "$CMD" == "solve" ]]; then
+  python3 - "$LEARNINGS_FILE" "$@" <<'PYEOF'
+import json, sys
+from datetime import date
+lf = sys.argv[1]; args = sys.argv[2:]
+kv = {}; i = 0
+while i < len(args):
+    if args[i].startswith('--') and i+1 < len(args):
+        kv[args[i][2:]] = args[i+1]; i += 2
+    else: i += 1
+
+keyword  = kv.get('keyword', kv.get('problem', ''))
+solution = kw.get('solution', '') if False else kv.get('solution', '')
+
+if not solution: sys.exit("ERROR: --solution 필수")
+
+entries = []
+for line in open(lf):
+    try: entries.append(json.loads(line.strip()))
+    except: pass
+
+# keyword로 problem 검색
+matched = []
+for i, e in enumerate(entries):
+    prob = e.get('problem', e.get('lesson', ''))
+    if keyword.lower() in prob.lower() and e.get('status') != 'solved':
+        matched.append((i, e))
+
+if not matched:
+    # unsolved 없으면 가장 최근 항목에 추가
+    for i, e in reversed(list(enumerate(entries))):
+        if e.get('status') != 'solved':
+            matched = [(i, e)]
+            break
+
+if not matched:
+    print("연결할 unsolved 항목 없음")
+    sys.exit(0)
+
+# 가장 관련성 높은 첫 번째에 solution 추가
+idx, entry = matched[0]
+entry['solution'] = solution
+entry['status'] = 'solved'
+entry['solved_date'] = date.today().isoformat()
+entries[idx] = entry
+
+with open(lf, 'w') as f:
+    for e in entries:
+        f.write(json.dumps(e, ensure_ascii=False) + '\n')
+
+print(f"[✓ Solved] {entry.get('problem','')[:60]}")
+print(f"    → {solution[:60]}")
+PYEOF
+
+# ── list ─────────────────────────────────────────────────────────
 elif [[ "$CMD" == "list" ]]; then
   python3 - "$LEARNINGS_FILE" "$@" <<'PYEOF'
 import json, sys
@@ -53,22 +134,36 @@ while i < len(args):
     if args[i].startswith('--') and i+1 < len(args):
         kv[args[i][2:]] = args[i+1]; i += 2
     else: i += 1
+
 entries = []
 for line in open(lf):
     try: entries.append(json.loads(line.strip()))
     except: pass
+
 if kv.get('category'): entries = [e for e in entries if e.get('category') == kv['category']]
-if kv.get('severity'): entries = [e for e in entries if e.get('severity') == kv['severity']]
+if kv.get('status'):   entries = [e for e in entries if e.get('status')   == kv['status']]
 n = int(kv.get('last', 0))
 if n > 0: entries = entries[-n:]
+
 for e in entries:
+    status = e.get('status', 'unsolved')
+    flag = '✓' if status == 'solved' else '?'
     cnt = f" x{e['count']}" if e.get('count', 1) > 1 else ""
-    print(f"[{e.get('date','?')}][{e.get('severity','?')}/{e.get('category','?')}]{cnt} {e.get('lesson','')}")
-    ctx = e.get('context', 'manual')
-    if ctx not in ('manual', 'N/A', ''): print(f"  ctx: {ctx}")
-print(f"\nTotal: {len(entries)}")
+    sev = e.get('severity', '?')
+    cat = e.get('category', '?')
+    prob = e.get('problem', e.get('lesson', ''))
+    sol  = e.get('solution', '')
+    print(f"[{flag}][{sev}/{cat}]{cnt} {prob}")
+    if sol:
+        print(f"    → {sol}")
+    elif status == 'unsolved':
+        print(f"    → (미해결)")
+
+unsolved = sum(1 for e in entries if e.get('status') != 'solved')
+print(f"\nTotal: {len(entries)} (미해결: {unsolved})")
 PYEOF
 
+# ── search ───────────────────────────────────────────────────────
 elif [[ "$CMD" == "search" ]]; then
   KW="${1:-}"; [[ -z "$KW" ]] && { echo "Usage: skiro-learnings search <keyword>"; exit 1; }
   python3 - "$LEARNINGS_FILE" "$KW" <<'PYEOF'
@@ -77,15 +172,20 @@ lf, kw = sys.argv[1], sys.argv[2].lower(); out = []
 for line in open(lf):
     try:
         d = json.loads(line.strip())
-        if any(kw in str(d.get(k, '')).lower() for k in ['lesson', 'context', 'category', 'severity']):
+        prob = d.get('problem', d.get('lesson', ''))
+        sol  = d.get('solution', '')
+        if kw in prob.lower() or kw in sol.lower() or kw in d.get('category','').lower():
             out.append(d)
     except: pass
 for e in out:
-    cnt = f" x{e['count']}" if e.get('count', 1) > 1 else ""
-    print(f"[{e.get('severity','?')}/{e.get('category','?')}]{cnt} {e.get('lesson','')}")
+    flag = '✓' if e.get('status') == 'solved' else '?'
+    print(f"[{flag}] {e.get('problem', e.get('lesson',''))}")
+    if e.get('solution'):
+        print(f"    → {e['solution']}")
 print(f"\n{len(out)} results for '{sys.argv[2]}'")
 PYEOF
 
+# ── count ────────────────────────────────────────────────────────
 elif [[ "$CMD" == "count" ]]; then
   python3 - "$LEARNINGS_FILE" <<'PYEOF'
 import json, sys, collections
@@ -93,15 +193,15 @@ entries = []
 for line in open(sys.argv[1]):
     try: entries.append(json.loads(line.strip()))
     except: pass
-by_cat = collections.Counter(e.get('category', '?') for e in entries)
-by_sev = collections.Counter(e.get('severity', '?') for e in entries)
-print(f"Total entries: {len(entries)}")
+solved   = sum(1 for e in entries if e.get('status') == 'solved')
+unsolved = len(entries) - solved
+by_cat = collections.Counter(e.get('category','?') for e in entries)
+print(f"Total: {len(entries)}  (해결됨: {solved}  미해결: {unsolved})")
 print("\nBy category:")
 for k, v in sorted(by_cat.items()): print(f"  {k}: {v}")
-print("\nBy severity:")
-for k, v in sorted(by_sev.items()): print(f"  {k}: {v}")
 PYEOF
 
+# ── promote ──────────────────────────────────────────────────────
 elif [[ "$CMD" == "promote" ]]; then
   THRESHOLD="${1:-3}"
   python3 - "$LEARNINGS_FILE" "$THRESHOLD" <<'PYEOF'
@@ -111,45 +211,32 @@ entries = []
 for line in open(lf):
     try: entries.append(json.loads(line.strip()))
     except: pass
-cands = [e for e in entries if e.get('count', 1) >= threshold]
-if not cands:
-    print(f"승격 후보 없음 (threshold={threshold}회)")
-else:
-    print(f"[PROMOTE 제안] {len(cands)}개 항목이 {threshold}회 이상 반복됨")
-    print("CHECKLIST.md 추가 권장:\n")
-    for e in cands:
-        print(f"  [{e.get('category','?').upper()}] (x{e.get('count',1)}) [ ] {e.get('lesson','')}")
-    print("\n→ CHECKLIST.md 해당 섹션에 추가하세요")
-PYEOF
 
-elif [[ "$CMD" == "migrate" ]]; then
-  SRC="${1:-}"; [[ -z "$SRC" || ! -f "$SRC" ]] && { echo "ERROR: 파일 없음: $SRC"; exit 1; }
-  python3 - "$LEARNINGS_FILE" "$SRC" <<'PYEOF'
-import json, sys
-from datetime import date
-lf, src = sys.argv[1], sys.argv[2]; count = 0
-with open(src) as f, open(lf, 'a') as fo:
-    for line in f:
-        line = line.strip()
-        if not line or line.startswith('#'): continue
-        fo.write(json.dumps({'date': date.today().isoformat(), 'skill': 'migrated',
-            'tier': 'N/A', 'category': 'process', 'severity': 'INFO',
-            'lesson': line, 'context': f'migrated from {src}', 'count': 1},
-            ensure_ascii=False) + '\n')
-        count += 1
-print(f"Migrated {count} entries to {lf}")
+# solved이고 count >= threshold인 항목만 (미해결은 CHECKLIST에 올리면 안됨)
+cands = [e for e in entries if e.get('count',1) >= threshold and e.get('status') == 'solved']
+if not cands:
+    unsolved_cands = [e for e in entries if e.get('count',1) >= threshold and e.get('status') != 'solved']
+    if unsolved_cands:
+        print(f"반복 미해결 항목 {len(unsolved_cands)}개 — 해결 후 promote 가능:")
+        for e in unsolved_cands:
+            print(f"  [?] (x{e.get('count',1)}) {e.get('problem','')[:60]}")
+    else:
+        print(f"promote 후보 없음 (threshold={threshold}회, solved 필요)")
+else:
+    print(f"[PROMOTE 제안] {len(cands)}개 항목 → CHECKLIST.md 추가 권장:\n")
+    for e in cands:
+        prob = e.get('problem','')
+        sol  = e.get('solution','')
+        print(f"  (x{e.get('count',1)}) [ ] {prob}")
+        print(f"           해결: {sol}")
 PYEOF
 
 else
-  echo "Usage: skiro-learnings <cmd> [opts]"
-  echo "Commands: add | list | search | count | promote | migrate"
-  echo "  add   --category <cat> --severity <sev> --lesson <text> [--context <ctx>]"
-  echo "  list  [--category <cat>] [--last <N>] [--severity <sev>]"
+  echo "Usage: skiro-learnings <cmd>"
+  echo "  add    --problem <문제> [--solution <해결책>] [--category <cat>] [--severity <sev>] [--context <ctx>]"
+  echo "  solve  --solution <해결책> [--keyword <검색어>]"
+  echo "  list   [--last <N>] [--status solved|unsolved] [--category <cat>]"
   echo "  search <keyword>"
   echo "  count"
   echo "  promote [<threshold=3>]"
-  echo "  migrate <old_flat_text_file>"
-  echo "Categories: safety|control|hardware|software|protocol|process|experiment"
-  echo "Severities: INFO|WARNING|CRITICAL"
-  [[ "$CMD" != "help" && "$CMD" != "--help" ]] && exit 1
 fi
