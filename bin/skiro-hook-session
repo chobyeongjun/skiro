@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# skiro-hook-session v1.1
+# UserPromptSubmit hook
+#
+# Fix v1.1:
+#   - Bug 2: grep -cF '[?]' (리터럴 패턴, 정규식 오해석 방지)
+#   - Bug 3: LEARNINGS_FILE → ~/.skiro/learnings.jsonl (글로벌)
+#   - Bug 4: SKIRO_BIN fallback → ~/skiro/bin
+#
+# 세션당 1회 실행 (1시간 TTL)
+
+set -uo pipefail
+
+# Fix Bug 4: canonical install path
+SKIRO_BIN="${SKIRO_BIN:-$HOME/skiro/bin}"
+LEARNINGS="$SKIRO_BIN/skiro-learnings"
+
+[[ ! -x "$LEARNINGS" ]] && exit 0
+
+# Fix Bug 3: 글로벌 learnings (프로젝트 무관)
+GLOBAL_SKIRO="$HOME/.skiro"
+mkdir -p "$GLOBAL_SKIRO"
+LEARNINGS_FILE="$GLOBAL_SKIRO/learnings.jsonl"
+
+# 세션 플래그도 글로벌 (Claude Code 재시작 기준)
+SESSION_FLAG="$GLOBAL_SKIRO/.session-loaded"
+
+# 1시간 내 이미 실행됐으면 스킵
+if [[ -f "$SESSION_FLAG" ]]; then
+    if [[ "$(uname)" == "Darwin" ]]; then
+        flag_age=$(( ($(date +%s) - $(stat -f %m "$SESSION_FLAG" 2>/dev/null || echo 0)) / 60 ))
+    else
+        flag_age=$(( ($(date +%s) - $(stat -c %Y "$SESSION_FLAG" 2>/dev/null || echo 0)) / 60 ))
+    fi
+    [[ $flag_age -lt 60 ]] && exit 0
+fi
+
+touch "$SESSION_FLAG"
+
+[[ ! -f "$LEARNINGS_FILE" || ! -s "$LEARNINGS_FILE" ]] && exit 0
+
+RECENT=$(SKIRO_LEARNINGS="$LEARNINGS_FILE" "$LEARNINGS" list --last 5 2>/dev/null)
+[[ -z "$RECENT" ]] && exit 0
+
+echo "─── skiro learnings (last 5) ───────────────"
+echo "$RECENT"
+
+# Fix Bug 2: grep -cF '[?]' (리터럴 문자열 검색)
+UNSOLVED_OUTPUT=$(SKIRO_LEARNINGS="$LEARNINGS_FILE" "$LEARNINGS" list --status unsolved 2>/dev/null)
+UNSOLVED=$(echo "$UNSOLVED_OUTPUT" | grep -cF '[?]' || echo 0)
+
+if [[ "$UNSOLVED" -gt 0 ]]; then
+    echo ""
+    echo "[!] Unsolved problems: $UNSOLVED — check before starting"
+fi
+
+PROMOTE=$(SKIRO_LEARNINGS="$LEARNINGS_FILE" "$LEARNINGS" promote 3 2>/dev/null)
+if echo "$PROMOTE" | grep -qF "PROMOTE"; then
+    echo ""
+    echo "[CHECKLIST] Ready to promote:"
+    echo "$PROMOTE" | grep -F "[ ]"
+fi
+
+echo "────────────────────────────────────────────"
+exit 0

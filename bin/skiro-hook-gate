@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+# skiro-hook-gate v1.1
+# PreToolUse hook: Bash
+#
+# Fix v1.1:
+#   - SKIRO_BIN fallback → ~/skiro/bin (canonical install path)
+#
+# exit 0 = 통과
+# exit 2 = 완전 차단
+
+set -uo pipefail
+
+# Fix Bug 4: canonical install path
+SKIRO_BIN="${SKIRO_BIN:-$HOME/skiro/bin}"
+
+INPUT=$(cat)
+COMMAND=$(echo "$INPUT" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    print(d.get('command', d.get('cmd', '')))
+except:
+    pass
+" 2>/dev/null)
+
+[[ -z "$COMMAND" ]] && exit 0
+
+DANGEROUS_PATTERNS=(
+    "openocd"
+    "teensy_loader"
+    "esptool"
+    "st-flash"
+    "pyocd"
+    "JLinkExe"
+    "nrfjprog"
+    "skiro-flash"
+    "make flash"
+    "make upload"
+    "pio run -t upload"
+)
+
+is_dangerous=0
+for pattern in "${DANGEROUS_PATTERNS[@]}"; do
+    echo "$COMMAND" | grep -qi "$pattern" && is_dangerous=1 && break
+done
+
+echo "$COMMAND" | grep -qi "hwtest\|hw_test\|hardware.test" && is_dangerous=1
+
+[[ $is_dangerous -eq 0 ]] && exit 0
+
+# .skiro_safety_gate 탐색 (현재 → 상위 3단계)
+gate_found=0
+gate_path=""
+search_dir="$(pwd)"
+for i in 0 1 2 3; do
+    if [[ -f "$search_dir/.skiro_safety_gate" ]]; then
+        gate_found=1
+        gate_path="$search_dir/.skiro_safety_gate"
+        break
+    fi
+    search_dir="$(dirname "$search_dir")"
+done
+
+if [[ $gate_found -eq 0 ]]; then
+    echo "╔══════════════════════════════════════════╗"
+    echo "║  SKIRO SAFETY GATE — BLOCKED             ║"
+    echo "╠══════════════════════════════════════════╣"
+    echo "║  .skiro_safety_gate not found            ║"
+    echo "║                                          ║"
+    echo "║  Required before: flash / hwtest         ║"
+    echo "║  Run skiro-safety analysis first         ║"
+    echo "╚══════════════════════════════════════════╝"
+    exit 2
+fi
+
+# gate 존재 → 만료 확인 (24h)
+gate_age=0
+if [[ "$(uname)" == "Darwin" ]]; then
+    gate_mtime=$(stat -f %m "$gate_path" 2>/dev/null || echo 0)
+else
+    gate_mtime=$(stat -c %Y "$gate_path" 2>/dev/null || echo 0)
+fi
+now=$(date +%s)
+gate_age=$(( (now - gate_mtime) / 3600 ))
+
+[[ $gate_age -gt 24 ]] && \
+    echo "[skiro] WARNING: Safety gate is ${gate_age}h old — consider re-running analysis"
+
+echo "[skiro] Safety gate OK → proceeding"
+exit 0

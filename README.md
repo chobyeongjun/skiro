@@ -31,6 +31,9 @@ source ~/.zshrc
 
 # 4. Register MCP server (Claude Code)
 claude mcp add skiro -s user -- node ~/skiro/bin/skiro-mcp-server.mjs
+
+# Note: if installed to a custom path, set SKIRO_BIN:
+# export SKIRO_BIN=/your/custom/path/skiro/bin
 ```
 
 Verify:
