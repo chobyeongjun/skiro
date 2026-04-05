@@ -17,7 +17,8 @@ chmod +x "$SKIRO_DIR/bin/skiro-complexity" \
          "$SKIRO_DIR/bin/skiro-mcp-server.mjs" \
          "$SKIRO_DIR/bin/skiro-hook-complexity" \
          "$SKIRO_DIR/bin/skiro-hook-gate" \
-         "$SKIRO_DIR/bin/skiro-hook-session"
+         "$SKIRO_DIR/bin/skiro-hook-session" \
+         "$SKIRO_DIR/bin/skiro-hook-prompt"
 echo "[1/5] permissions set"
 
 # 2. npm 의존성
@@ -65,6 +66,9 @@ hooks = {
     "UserPromptSubmit": [
         {
             "hooks": [{"type": "command", "command": f"{skiro_dir}/bin/skiro-hook-session"}]
+        },
+        {
+            "hooks": [{"type": "command", "command": f"{skiro_dir}/bin/skiro-hook-prompt"}]
         }
     ]
 }

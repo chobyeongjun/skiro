@@ -1,0 +1,165 @@
+#!/bin/sh
+# skiro-hook-prompt v1.1 (POSIX sh 호환)
+# UserPromptSubmit hook: 문제/해결 신호 직접 감지
+# Claude 판단 우회 — hook이 직접 skiro-learnings 실행
+
+SKIRO_BIN="${SKIRO_BIN:-$HOME/skiro/bin}"
+LEARNINGS="$SKIRO_BIN/skiro-learnings"
+[ -x "$LEARNINGS" ] || exit 0
+
+GLOBAL_SKIRO="$HOME/.skiro"
+mkdir -p "$GLOBAL_SKIRO"
+SKIRO_LEARNINGS="${SKIRO_LEARNINGS:-$GLOBAL_SKIRO/learnings.jsonl}"
+export SKIRO_LEARNINGS
+
+INPUT=$(cat 2>/dev/null || true)
+[ -z "$INPUT" ] && exit 0
+
+MSG=$(echo "$INPUT" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    for key in ['message', 'prompt', 'content', 'text']:
+        if key in d:
+            val = d[key]
+            if isinstance(val, list):
+                t = ' '.join(b.get('text','') for b in val if isinstance(b,dict))
+            else:
+                t = str(val)
+            print(t.lower())
+            break
+except:
+    pass
+" 2>/dev/null)
+
+[ -z "$MSG" ] && exit 0
+
+# 짧은 메시지 스킵 (15자 미만 — 한글/영어 혼합 대응)
+char_count=$(echo "$MSG" | wc -c | tr -d ' ')
+[ "$char_count" -lt 15 ] && exit 0
+
+# 중복 방지
+LAST_HASH_FILE="$GLOBAL_SKIRO/.last-prompt-hash"
+MSG_HASH=$(echo "$MSG" | md5sum 2>/dev/null | cut -d' ' -f1 || echo "")
+if [ -n "$MSG_HASH" ] && [ -f "$LAST_HASH_FILE" ]; then
+    last=$(cat "$LAST_HASH_FILE" 2>/dev/null || echo "")
+    [ "$last" = "$MSG_HASH" ] && exit 0
+fi
+[ -n "$MSG_HASH" ] && echo "$MSG_HASH" > "$LAST_HASH_FILE"
+
+# ── 문제 신호 감지 ────────────────────────────────────────────────
+is_problem=0
+is_solution=0
+
+# 문제 패턴 (POSIX: 개별 grep)
+for p in "안됐어" "안됩니다" "실패했어" "실패함" "에러" "오류" "버그" \
+          "이상하게" "이상한데" "이상해" "안 되더라" "안되더라" \
+          "동작 안 해" "동작이 안" "작동 안 해" "문제 생겼" "문제가 있" \
+          "점프했어" "튀어" "튀는데" "안 됐어" "안됐" \
+          "not working" "failed" "error" "bug" "broken" "crashed" "unexpected" \
+          "issue" "problem" "wrong" "jump" "doesnt work" "doesn't"; do
+    echo "$MSG" | grep -qiF "$p" && is_problem=1 && break
+done
+
+# 해결 패턴
+for p in "됐어" "됩니다" "해결됐" "이렇게 하니까" "이렇게 하면 돼" \
+          "알고 보니" "알고보니" "fix는" "해결책은" "방법은" \
+          "fixed" "solved" "it works" "worked" "the fix is" "turns out"; do
+    echo "$MSG" | grep -qiF "$p" && is_solution=1 && break
+done
+
+TODAY=$(date +%Y-%m-%d)
+
+# ── 문제 저장 ─────────────────────────────────────────────────────
+if [ "$is_problem" = "1" ] && [ "$is_solution" = "0" ]; then
+    PROBLEM=$(echo "$INPUT" | python3 -c "
+import sys, json, re
+try:
+    d = json.load(sys.stdin)
+    for key in ['message','prompt','content','text']:
+        if key in d:
+            val = d[key]
+            if isinstance(val, list):
+                t = ' '.join(b.get('text','') for b in val if isinstance(b,dict))
+            else:
+                t = str(val)
+            s = re.split(r'[.!?\n。！？]', t)
+            print(s[0].strip()[:80])
+            break
+except: pass
+" 2>/dev/null)
+
+    [ -z "$PROBLEM" ] && exit 0
+
+    # category 자동 판단
+    CATEGORY="process"
+    echo "$MSG" | grep -qiF "motor" && CATEGORY="hardware"
+    echo "$MSG" | grep -qiF "모터" && CATEGORY="hardware"
+    echo "$MSG" | grep -qiF "enable" && CATEGORY="hardware"
+    echo "$MSG" | grep -qiF "can" && CATEGORY="protocol"
+    echo "$MSG" | grep -qiF "uart" && CATEGORY="protocol"
+    echo "$MSG" | grep -qiF "통신" && CATEGORY="protocol"
+    echo "$MSG" | grep -qiF "control" && CATEGORY="control"
+    echo "$MSG" | grep -qiF "제어" && CATEGORY="control"
+    echo "$MSG" | grep -qiF "isr" && CATEGORY="software"
+    echo "$MSG" | grep -qiF "interrupt" && CATEGORY="software"
+    echo "$MSG" | grep -qiF "flash" && CATEGORY="safety"
+    echo "$MSG" | grep -qiF "sensor" && CATEGORY="hardware"
+    echo "$MSG" | grep -qiF "센서" && CATEGORY="hardware"
+
+    SEVERITY="WARNING"
+    echo "$MSG" | grep -qiF "모터" && SEVERITY="CRITICAL"
+    echo "$MSG" | grep -qiF "motor" && SEVERITY="CRITICAL"
+    echo "$MSG" | grep -qiF "flash" && SEVERITY="CRITICAL"
+    echo "$MSG" | grep -qiF "safety" && SEVERITY="CRITICAL"
+    echo "$MSG" | grep -qiF "안전" && SEVERITY="CRITICAL"
+    echo "$MSG" | grep -qiF "사소" && SEVERITY="INFO"
+
+    "$LEARNINGS" add \
+        --problem "$PROBLEM" \
+        --category "$CATEGORY" \
+        --severity "$SEVERITY" \
+        --context "$TODAY hook-prompt" 2>/dev/null
+
+    echo "[skiro/hook] [?] 문제 감지: ${PROBLEM%${PROBLEM#??????????????????????????????????????????????????????????????????}}"
+fi
+
+# ── 해결 저장 ─────────────────────────────────────────────────────
+if [ "$is_solution" = "1" ]; then
+    SOLUTION=$(echo "$INPUT" | python3 -c "
+import sys, json, re
+try:
+    d = json.load(sys.stdin)
+    for key in ['message','prompt','content','text']:
+        if key in d:
+            val = d[key]
+            if isinstance(val, list):
+                t = ' '.join(b.get('text','') for b in val if isinstance(b,dict))
+            else:
+                t = str(val)
+            s = re.split(r'[.!?\n。！？]', t)
+            print(s[0].strip()[:80])
+            break
+except: pass
+" 2>/dev/null)
+
+    [ -z "$SOLUTION" ] && exit 0
+
+    "$LEARNINGS" solve --solution "$SOLUTION" 2>/dev/null
+
+    # promote --auto
+    CHECKLIST=""
+    GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
+    if [ -n "$GIT_ROOT" ] && [ -f "$GIT_ROOT/CHECKLIST.md" ]; then
+        CHECKLIST="$GIT_ROOT/CHECKLIST.md"
+    fi
+    if [ -n "$CHECKLIST" ]; then
+        SKIRO_CHECKLIST="$CHECKLIST" "$LEARNINGS" promote 3 --auto 2>/dev/null || true
+    else
+        "$LEARNINGS" promote 3 2>/dev/null || true
+    fi
+
+    echo "[skiro/hook] [✓] 해결 감지: ${SOLUTION%${SOLUTION#??????????????????????????????????????????????????????????????????}}"
+fi
+
+exit 0

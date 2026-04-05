@@ -156,11 +156,36 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
   if (name === "skiro_record_solution") {
     const kw = args.keyword ? `--keyword "${args.keyword}"` : "";
     run(`${LEARNINGS} solve --solution "${args.solution}" ${kw}`);
-    const promote = run(`${LEARNINGS} promote 3`);
+
+    // Fix: promote --auto → CHECKLIST.md 자동 업데이트
+    const { execSync: exec2 } = await import("child_process");
+    const { existsSync: exists2 } = await import("fs");
+    const { join: join2 } = await import("path");
+    let checklistArg = "";
+    try {
+      const gitRoot = exec2("git rev-parse --show-toplevel 2>/dev/null", {
+        encoding: "utf8", cwd: process.cwd()
+      }).trim();
+      const cl = join2(gitRoot, "CHECKLIST.md");
+      if (exists2(cl)) checklistArg = cl;
+    } catch {}
+
+    const promoteEnv = checklistArg
+      ? { ...process.env, SKIRO_LEARNINGS: getLearningsFile(), SKIRO_CHECKLIST: checklistArg }
+      : { ...process.env, SKIRO_LEARNINGS: getLearningsFile() };
+
+    let promoteResult = "";
+    try {
+      promoteResult = execSync(`${LEARNINGS} promote 3 --auto`, {
+        encoding: "utf8", env: promoteEnv
+      }).trim();
+    } catch (e) {
+      promoteResult = e.stdout?.trim() || "";
+    }
+
     let msg = `[✓] Solution linked: ${args.solution.slice(0, 60)}`;
-    if (promote.includes("PROMOTE")) {
-      const item = promote.split("\n").find(l => l.includes("[ ]"));
-      if (item) msg += `\n[CHECKLIST suggestion] ${item.trim()}`;
+    if (promoteResult.includes("PROMOTE") || promoteResult.includes("추가됨")) {
+      msg += `\n[CHECKLIST] ${promoteResult.split("\n").find(l => l.includes("[+]") || l.includes("추가됨")) || "updated"}`;
     }
     return { content: [{ type: "text", text: msg }] };
   }
