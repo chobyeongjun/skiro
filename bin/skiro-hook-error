@@ -1,0 +1,73 @@
+#!/bin/sh
+# skiro-hook-error v1.1 (POSIX sh 호환)
+# PostToolUse hook: Bash 실행 결과에서 에러 자동 감지
+
+SKIRO_BIN="${SKIRO_BIN:-$HOME/skiro/bin}"
+LEARNINGS="$SKIRO_BIN/skiro-learnings"
+[ -x "$LEARNINGS" ] || exit 0
+
+GLOBAL_SKIRO="$HOME/.skiro"
+mkdir -p "$GLOBAL_SKIRO"
+SKIRO_LEARNINGS="${SKIRO_LEARNINGS:-$GLOBAL_SKIRO/learnings.jsonl}"
+export SKIRO_LEARNINGS
+
+INPUT=$(cat 2>/dev/null || true)
+[ -z "$INPUT" ] && exit 0
+
+# strict=False로 control character 포함 JSON 파싱
+TMPPY=$(mktemp /tmp/skiro-XXXXXX.py)
+printf 'import sys,json\ntry:\n raw=sys.stdin.read()\n d=json.loads(raw,strict=False)\n out=d.get("output",d.get("result",d.get("content","")))\n if isinstance(out,list):\n  out=" ".join(b.get("text","") for b in out if isinstance(b,dict))\n sys.stdout.write(str(out)[:800])\nexcept:pass\n' > "$TMPPY"
+OUTPUT=$(echo "$INPUT" | python3 "$TMPPY" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+rm -f "$TMPPY"
+
+[ -z "$OUTPUT" ] && exit 0
+
+# 에러 신호 감지
+is_error=0
+for p in "error:" "traceback" "exception" "segfault" "segmentation fault" \
+         "permission denied" "command not found" "no such file" \
+         "undefined reference" "compilation failed" "build failed" \
+         "make: error" "cmake error" "fatal error" "openocd: error" \
+         "failed to open" "target not responding" "timeout" "watchdog" \
+         "can: error" "uart: framing error"; do
+    echo "$OUTPUT" | grep -qiF "$p" && is_error=1 && break
+done
+
+[ "$is_error" = "0" ] && exit 0
+
+# 에러 첫 줄 추출
+TMPPY=$(mktemp /tmp/skiro-XXXXXX.py)
+printf 'import sys\nlines=sys.stdin.read().split("\\n")\nkws=["error:","fatal:","failed","exception","traceback","undefined ref"]\nfor line in lines:\n if any(k in line.lower() for k in kws):\n  sys.stdout.write(line.strip()[:80])\n  break\n' > "$TMPPY"
+ERROR_LINE=$(echo "$OUTPUT" | python3 "$TMPPY" 2>/dev/null)
+rm -f "$TMPPY"
+
+[ -z "$ERROR_LINE" ] && exit 0
+
+# 중복 방지
+ERR_HASH=$(echo "$ERROR_LINE" | md5sum 2>/dev/null | cut -d' ' -f1 || echo "")
+LAST_ERR="$GLOBAL_SKIRO/.last-error-hash"
+if [ -n "$ERR_HASH" ] && [ -f "$LAST_ERR" ]; then
+    last=$(cat "$LAST_ERR" 2>/dev/null || echo "")
+    [ "$last" = "$ERR_HASH" ] && exit 0
+fi
+[ -n "$ERR_HASH" ] && echo "$ERR_HASH" > "$LAST_ERR"
+
+# category + severity
+CATEGORY="software"
+echo "$OUTPUT" | grep -qiE "openocd|flash|upload|program.*\.(elf|bin|hex)" && CATEGORY="safety"
+echo "$OUTPUT" | grep -qiE "can.*error|uart.*error|timeout" && CATEGORY="protocol"
+echo "$OUTPUT" | grep -qiE "segfault|segmentation|memory|heap|stack" && CATEGORY="software"
+echo "$OUTPUT" | grep -qiE "make.*error|cmake|build|compile|undefined" && CATEGORY="software"
+
+SEVERITY="WARNING"
+echo "$OUTPUT" | grep -qiE "fatal|segfault|watchdog|target not responding|hardware fault" && SEVERITY="CRITICAL"
+
+TODAY=$(date +%Y-%m-%d)
+"$LEARNINGS" add \
+    --problem "$ERROR_LINE" \
+    --category "$CATEGORY" \
+    --severity "$SEVERITY" \
+    --context "$TODAY bash-error" 2>/dev/null
+
+echo "[skiro/hook] [?] 에러 감지: ${ERROR_LINE}"
+exit 0

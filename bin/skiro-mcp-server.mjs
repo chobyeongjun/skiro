@@ -126,6 +126,20 @@ Shows unsolved problems and CHECKLIST promotion candidates.`,
       }
     },
     {
+      name: "skiro_search_learnings",
+      description: `Search past problem-solution pairs by keyword.
+Use when working on a task and want to check if similar issues were encountered before.
+Returns matching entries with their solutions.
+Example: call with keyword="CAN" before starting CAN bus work.`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          keyword: { type: "string", description: "Search keyword (English or Korean)" }
+        },
+        required: ["keyword"]
+      }
+    },
+    {
       name: "skiro_safety_gate_create",
       description: `Call after completing safety analysis with ZERO critical issues.
 Creates .skiro_safety_gate in current project directory — unlocks flash/hwtest.
@@ -238,6 +252,11 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const cat    = args.category ? `--category ${args.category}` : "";
     const status = args.status   ? `--status ${args.status}`     : "";
     const out = run(`${LEARNINGS} list --last ${n} ${cat} ${status}`);
+    return { content: [{ type: "text", text: out }] };
+  }
+
+  if (name === "skiro_search_learnings") {
+    const out = run(`${LEARNINGS} search "${args.keyword}"`);
     return { content: [{ type: "text", text: out }] };
   }
 

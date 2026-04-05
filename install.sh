@@ -18,7 +18,8 @@ chmod +x "$SKIRO_DIR/bin/skiro-complexity" \
          "$SKIRO_DIR/bin/skiro-hook-complexity" \
          "$SKIRO_DIR/bin/skiro-hook-gate" \
          "$SKIRO_DIR/bin/skiro-hook-session" \
-         "$SKIRO_DIR/bin/skiro-hook-prompt"
+         "$SKIRO_DIR/bin/skiro-hook-prompt" \
+         "$SKIRO_DIR/bin/skiro-hook-error"
 echo "[1/5] permissions set"
 
 # 2. npm 의존성
@@ -69,6 +70,12 @@ hooks = {
         },
         {
             "hooks": [{"type": "command", "command": f"{skiro_dir}/bin/skiro-hook-prompt"}]
+        }
+    ],
+    "PostToolUse": [
+        {
+            "matcher": "Bash",
+            "hooks": [{"type": "command", "command": f"{skiro_dir}/bin/skiro-hook-error"}]
         }
     ]
 }

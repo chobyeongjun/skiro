@@ -1,65 +1,53 @@
-#!/usr/bin/env bash
-# skiro-hook-complexity v1.1
+#!/bin/sh
+# skiro-hook-complexity v2.1 (POSIX sh 완전 호환)
 # PreToolUse hook: Read / Write / Edit / MultiEdit
-#
-# Fix v1.1:
-#   - SKIRO_BIN fallback → ~/skiro/bin (canonical install path)
-#   - complexity cache → $(pwd)/.skiro/ (per-project, OK)
-#
-# exit 0 = 항상 통과 (분석만 수행, 차단은 skiro-hook-gate 담당)
 
-set -uo pipefail
-
-# Fix Bug 4: canonical install path
 SKIRO_BIN="${SKIRO_BIN:-$HOME/skiro/bin}"
 COMPLEXITY="$SKIRO_BIN/skiro-complexity"
+[ -x "$COMPLEXITY" ] || exit 0
 
-[[ ! -x "$COMPLEXITY" ]] && exit 0
+INPUT=$(cat 2>/dev/null || true)
+[ -z "$INPUT" ] && exit 0
 
-INPUT=$(cat)
+TMPPY=$(mktemp /tmp/skiro-XXXXXX.py)
+printf 'import sys,json\ntry:\n d=json.load(sys.stdin)\n for k in ["file_path","path"]:\n  if k in d:\n   sys.stdout.write(d[k])\n   break\nexcept:pass\n' > "$TMPPY"
+FILE_PATH=$(echo "$INPUT" | python3 "$TMPPY" 2>/dev/null)
+rm -f "$TMPPY"
 
-FILE_PATH=$(echo "$INPUT" | python3 -c "
-import sys, json
-try:
-    d = json.load(sys.stdin)
-    for key in ['file_path', 'path']:
-        if key in d:
-            print(d[key])
-            break
-except:
-    pass
-" 2>/dev/null)
-
-[[ -z "$FILE_PATH" ]] && exit 0
+[ -z "$FILE_PATH" ] && exit 0
 
 EXT="${FILE_PATH##*.}"
 is_source=0
 for e in c cpp h hpp py m ino; do
-    [[ "$EXT" == "$e" ]] && is_source=1 && break
+    [ "$EXT" = "$e" ] && is_source=1 && break
 done
-[[ $is_source -eq 0 ]] && exit 0
-[[ ! -f "$FILE_PATH"  ]] && exit 0
+[ "$is_source" = "0" ] && exit 0
+[ -f "$FILE_PATH" ] || exit 0
 
 RESULT=$("$COMPLEXITY" "$FILE_PATH" --json 2>/dev/null) || exit 0
+[ -z "$RESULT" ] && exit 0
 
-SCORE=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['score'])" 2>/dev/null || echo "0")
-TIER=$( echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['tier'])"  2>/dev/null || echo "fast")
-MODULES=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['modules'])" 2>/dev/null || echo "")
+# stdin으로 RESULT 전달 (arg 방식 회피)
+TMPPY=$(mktemp /tmp/skiro-XXXXXX.py)
+printf 'import sys,json\nd=json.load(sys.stdin)\nprint(d.get("score",0))\nprint(d.get("tier","fast"))\nprint(d.get("modules",""))\n' > "$TMPPY"
+PARSED=$(echo "$RESULT" | python3 "$TMPPY" 2>/dev/null)
+rm -f "$TMPPY"
+[ -z "$PARSED" ] && exit 0
 
-# complexity 캐시: 프로젝트별 (OK)
+SCORE=$(echo "$PARSED" | sed -n '1p')
+TIER=$(echo  "$PARSED" | sed -n '2p')
+MODULES=$(echo "$PARSED" | sed -n '3p')
 
-[[ "$SCORE" -lt 10 ]] && exit 0
+[ "$SCORE" -lt 10 ] && exit 0
 
-# score >= 10: 캐시 저장
 CACHE_DIR="$(pwd)/.skiro"
 mkdir -p "$CACHE_DIR"
 echo "$RESULT" > "$CACHE_DIR/last-complexity.json"
 
 echo "[skiro] $FILE_PATH → score=$SCORE tier=$TIER"
-[[ -n "$MODULES" ]] && echo "[skiro] Load phases: $MODULES"
-
-if [[ "$TIER" == "partial" || "$TIER" == "full" ]]; then
-    echo "[skiro] Safety analysis required before flash/hwtest"
-fi
+[ -n "$MODULES" ] && echo "[skiro] Load phases: $MODULES"
+case "$TIER" in
+    partial|full) echo "[skiro] Safety analysis required before flash/hwtest" ;;
+esac
 
 exit 0
