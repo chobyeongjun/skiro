@@ -1,11 +1,17 @@
 #!/bin/sh
-# skiro-hook-prompt v2.0 (POSIX sh 호환)
-# UserPromptSubmit hook: 문제/해결 신호 직접 감지
-# Fix v2.0: category 판단 정밀화 (false positive 방지)
+# skiro-hook-prompt v3.1
+# UserPromptSubmit hook
+#
+# v3.1:
+#   - skiro-classify.py 분리 (heredoc truncation 완전 해결)
+#   - python3 1회 호출 (v2: 3회 → ~3배 빠름)
+#   - slow-path: 패턴 미감지 시 Claude context에 판단 주입
 
 SKIRO_BIN="${SKIRO_BIN:-$HOME/skiro/bin}"
 LEARNINGS="$SKIRO_BIN/skiro-learnings"
+CLASSIFY="$SKIRO_BIN/skiro-classify.py"
 [ -x "$LEARNINGS" ] || exit 0
+[ -f "$CLASSIFY"  ] || exit 0
 
 GLOBAL_SKIRO="$HOME/.skiro"
 mkdir -p "$GLOBAL_SKIRO"
@@ -15,156 +21,63 @@ export SKIRO_LEARNINGS
 INPUT=$(cat 2>/dev/null || true)
 [ -z "$INPUT" ] && exit 0
 
-MSG=$(echo "$INPUT" | python3 -c "
-import sys, json
-try:
-    d = json.load(sys.stdin)
-    for key in ['message', 'prompt', 'content', 'text']:
-        if key in d:
-            val = d[key]
-            if isinstance(val, list):
-                t = ' '.join(b.get('text','') for b in val if isinstance(b,dict))
-            else:
-                t = str(val)
-            print(t.lower())
-            break
-except:
-    pass
-" 2>/dev/null)
+# ── python3 단일 호출: 파싱 + 분류 + hash 계산 ───────────────────
+RESULT=$(echo "$INPUT" | python3 "$CLASSIFY" 2>/dev/null)
+[ -z "$RESULT" ] && exit 0
 
-[ -z "$MSG" ] && exit 0
+MSG_HASH=$(echo "$RESULT"   | cut -d'|' -f1)
+IS_PROBLEM=$(echo "$RESULT" | cut -d'|' -f2)
+IS_SOLUTION=$(echo "$RESULT"| cut -d'|' -f3)
+CATEGORY=$(echo "$RESULT"   | cut -d'|' -f4)
+SEVERITY=$(echo "$RESULT"   | cut -d'|' -f5)
+FIRST=$(echo "$RESULT"      | cut -d'|' -f6)
 
-# 짧은 메시지 스킵 (한글/영어 혼합 대응: 글자 수 기준)
-char_count=$(echo "$MSG" | wc -c | tr -d ' ')
-[ "$char_count" -lt 15 ] && exit 0
-
-# 중복 방지 (같은 메시지 연속 전송)
-LAST_HASH_FILE="$GLOBAL_SKIRO/.last-prompt-hash"
-MSG_HASH=$(echo "$MSG" | md5sum 2>/dev/null | cut -d' ' -f1 || echo "")
-if [ -n "$MSG_HASH" ] && [ -f "$LAST_HASH_FILE" ]; then
-    last=$(cat "$LAST_HASH_FILE" 2>/dev/null || echo "")
-    [ "$last" = "$MSG_HASH" ] && exit 0
+# 중복 방지
+LAST_HASH="$GLOBAL_SKIRO/.last-prompt-hash"
+if [ -n "$MSG_HASH" ] && [ -f "$LAST_HASH" ]; then
+    [ "$(cat "$LAST_HASH" 2>/dev/null)" = "$MSG_HASH" ] && exit 0
 fi
-[ -n "$MSG_HASH" ] && echo "$MSG_HASH" > "$LAST_HASH_FILE"
-
-# ── 문제 신호 ────────────────────────────────────────────────────
-is_problem=0
-is_solution=0
-
-for p in "안됐어" "안됩니다" "안되네" "실패했어" "실패함" "에러" "오류" "버그" \
-          "이상하게" "이상한데" "이상해" "안 되더라" "안되더라" \
-          "동작 안 해" "동작 안 함" "작동 안 해" "작동 안 함" "문제 생겼" "문제가 있" \
-          "점프했어" "튀어" "튀는데" "안 됐어" "안됐" "안 돼" \
-          "발생했" "발생해" "터졌어" "죽었어" "멈췄어" "먹통" \
-          "segfault" "났어" "났는데" "안돼" "빌드가" "컴파일" \
-          "not working" "doesnt work" "failed" "error" "bug" \
-          "broken" "crashed" "unexpected" "wrong output" \
-          "issue" "problem" "wrong" "jump" "misfire" \
-          "fault" "hang" "freeze" "timeout" "overflow" "leak"; do
-    echo "$MSG" | grep -qiF "$p" && is_problem=1 && break
-done
-
-# ── 해결 신호 ────────────────────────────────────────────────────
-for p in "해결됐어" "해결됐다" "해결됐습니다" "이렇게 하니까" "이렇게 하면 돼" \
-          "알고 보니" "알고보니" "fix는" "해결책은" "방법은" \
-          "정상 작동합니다" "작동이 됩니다" "해결했어" "해결했다" "고쳤어" "고쳤다" \
-          "되더라고요" "이제 됩니다" "해결방법은" "해결된 것 같아" \
-          "fixed" "solved" "it works now" "problem solved" "the fix is" "turns out" \
-          "working now" "resolved" "figured out" "the solution"; do
-    echo "$MSG" | grep -qiF "$p" && is_solution=1 && break
-done
+[ -n "$MSG_HASH" ] && echo "$MSG_HASH" > "$LAST_HASH"
 
 TODAY=$(date +%Y-%m-%d)
 
-# ── 문제 저장 ─────────────────────────────────────────────────────
-if [ "$is_problem" = "1" ] && [ "$is_solution" = "0" ]; then
-    PROBLEM=$(echo "$INPUT" | python3 -c "
-import sys, json, re
-try:
-    d = json.load(sys.stdin)
-    for key in ['message','prompt','content','text']:
-        if key in d:
-            val = d[key]
-            if isinstance(val, list):
-                t = ' '.join(b.get('text','') for b in val if isinstance(b,dict))
-            else:
-                t = str(val)
-            s = re.split(r'[.!?\n]', t)
-            print(s[0].strip()[:80])
-            break
-except: pass
-" 2>/dev/null)
-    [ -z "$PROBLEM" ] && exit 0
-
-    # Fix v2.0: category 정밀 판단
-    # CAN은 "CAN bus", "CAN 통신"처럼 기술 맥락에서만 인식
-    CATEGORY="process"
-    # hardware: 모터, 액추에이터, 센서, 하드웨어
-    echo "$MSG" | grep -qiE "motor|모터|actuator|액추에이터|enable|gpio|adc|dac|pwm|encoder|로드셀|loadcell" && CATEGORY="hardware"
-    # protocol: CAN bus/통신, UART, SPI, I2C (단독 'can' 제외)
-    echo "$MSG" | grep -qiE "can bus|can 통신|can_|uart|spi|i2c|rs232|rs485|modbus|serial port" && CATEGORY="protocol"
-    # control: 제어 알고리즘
-    echo "$MSG" | grep -qiE "pid|gain|kp|kd|ki|impedance|admittance|ilc|제어|controller|control loop" && CATEGORY="control"
-    # software: 펌웨어/OS 레벨
-    echo "$MSG" | grep -qiE "isr|interrupt|인터럽트|dma|rtos|freertos|mutex|semaphore|deadlock|race" && CATEGORY="software"
-    # safety: 플래시/전원/안전
-    echo "$MSG" | grep -qiE "flash|upload|firmware|펌웨어|전원|power supply|overvolt|overcurr|safety" && CATEGORY="safety"
-
-    # severity 판단
-    SEVERITY="WARNING"
-    # CRITICAL: 모터/전원/안전/데이터 손실
-    echo "$MSG" | grep -qiE "motor|모터|flash|전원|safety|안전|fire|burn|smoke|data loss|explosion" && SEVERITY="CRITICAL"
-    # INFO: 사소한 것
-    echo "$MSG" | grep -qiE "사소|minor|typo|cosmetic|print|log|debug" && SEVERITY="INFO"
-
+# ── Fast-path: 패턴 명확히 매칭된 경우 즉시 저장 ─────────────────
+if [ "$IS_PROBLEM" = "1" ] && [ "$IS_SOLUTION" = "0" ]; then
+    [ -z "$FIRST" ] && exit 0
     "$LEARNINGS" add \
-        --problem "$PROBLEM" \
+        --problem "$FIRST" \
         --category "$CATEGORY" \
         --severity "$SEVERITY" \
         --context "$TODAY hook-prompt" 2>/dev/null
-
-    echo "[skiro/hook] [?] 감지: ${PROBLEM%${PROBLEM#????????????????????????????????????????????????????????????????????????????????}}"
+    echo "[skiro] [?] $FIRST"
+    exit 0
 fi
 
-# ── 해결 저장 ─────────────────────────────────────────────────────
-if [ "$is_solution" = "1" ]; then
-    SOLUTION=$(echo "$INPUT" | python3 -c "
-import sys, json, re
-try:
-    d = json.load(sys.stdin)
-    for key in ['message','prompt','content','text']:
-        if key in d:
-            val = d[key]
-            if isinstance(val, list):
-                t = ' '.join(b.get('text','') for b in val if isinstance(b,dict))
-            else:
-                t = str(val)
-            s = re.split(r'[.!?\n]', t)
-            print(s[0].strip()[:80])
-            break
-except: pass
-" 2>/dev/null)
-    [ -z "$SOLUTION" ] && exit 0
-
-    # unsolved 항목 있으면 연결, 없으면 새 solved 항목으로 저장
-    SOLVE_OUT=$("$LEARNINGS" solve --solution "$SOLUTION" 2>/dev/null)
-    if echo "$SOLVE_OUT" | grep -q "연결할 unsolved"; then
-        # unsolved 없음 → 새 solved 항목으로 직접 저장
-        "$LEARNINGS" add             --problem "$SOLUTION"             --solution "$SOLUTION"             --category "process"             --severity "INFO"             --context "$TODAY hook-prompt(solution)" 2>/dev/null
+if [ "$IS_SOLUTION" = "1" ]; then
+    [ -z "$FIRST" ] && exit 0
+    SOLVE_OUT=$("$LEARNINGS" solve --solution "$FIRST" 2>/dev/null)
+    if echo "$SOLVE_OUT" | grep -q "unsolved"; then
+        "$LEARNINGS" add \
+            --problem "$FIRST" --solution "$FIRST" \
+            --category "process" --severity "INFO" \
+            --context "$TODAY hook-prompt(sol)" 2>/dev/null
     fi
-
+    # promote --auto
     CHECKLIST=""
     GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
     [ -n "$GIT_ROOT" ] && [ -f "$GIT_ROOT/CHECKLIST.md" ] && CHECKLIST="$GIT_ROOT/CHECKLIST.md"
-    [ -n "${SKIRO_CHECKLIST:-}" ] && [ -f "$SKIRO_CHECKLIST" ] && CHECKLIST="$SKIRO_CHECKLIST"
-
+    [ -n "${SKIRO_CHECKLIST:-}" ] && [ -f "${SKIRO_CHECKLIST:-}" ] && CHECKLIST="${SKIRO_CHECKLIST:-}"
     if [ -n "$CHECKLIST" ]; then
         SKIRO_CHECKLIST="$CHECKLIST" "$LEARNINGS" promote 3 --auto 2>/dev/null || true
     else
         "$LEARNINGS" promote 3 2>/dev/null || true
     fi
-
-    echo "[skiro/hook] [✓] 해결: ${SOLUTION%${SOLUTION#????????????????????????????????????????????????????????????????????????????????}}"
+    echo "[skiro] [v] $FIRST"
+    exit 0
 fi
 
+# ── Slow-path: 패턴 미감지 → Claude context에 판단 지시 주입 ──────
+# 패턴으로 못 잡은 케이스를 Claude 자신의 언어 이해로 처리
+# Claude가 이 출력을 보고 skiro_record_problem/solution을 직접 호출함
+echo "[skiro/check] 문제/해결 여부 판단 필요: $FIRST"
 exit 0
