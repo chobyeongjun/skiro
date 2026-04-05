@@ -47,11 +47,13 @@ TIER=$( echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)
 MODULES=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['modules'])" 2>/dev/null || echo "")
 
 # complexity 캐시: 프로젝트별 (OK)
+
+[[ "$SCORE" -lt 10 ]] && exit 0
+
+# score >= 10: 캐시 저장
 CACHE_DIR="$(pwd)/.skiro"
 mkdir -p "$CACHE_DIR"
 echo "$RESULT" > "$CACHE_DIR/last-complexity.json"
-
-[[ "$SCORE" -lt 10 ]] && exit 0
 
 echo "[skiro] $FILE_PATH → score=$SCORE tier=$TIER"
 [[ -n "$MODULES" ]] && echo "[skiro] Load phases: $MODULES"

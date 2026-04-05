@@ -217,9 +217,20 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
   }
 
   if (name === "skiro_safety_gate_create") {
-    // Fix: gate는 프로젝트별 (cwd 사용 OK — 차단도 cwd 기준)
+    // Fix 1: CRITICAL unsolved 있으면 gate 생성 거부
+    const criticalCheck = run(`${LEARNINGS} list --status unsolved --severity CRITICAL`);
+    const criticalCount = (criticalCheck.match(/\[\?\]/g) || []).length;
+    if (criticalCount > 0) {
+      return {
+        content: [{
+          type: "text",
+          text: `[GATE REFUSED] ${criticalCount} unresolved CRITICAL issue(s) detected.\nResolve all CRITICAL issues before creating safety gate.\n\n${criticalCheck}`
+        }]
+      };
+    }
+
     const gateFile = join(process.cwd(), ".skiro_safety_gate");
-    const content = [
+    const gateContent = [
       "SAFETY_GATE_PASSED",
       `timestamp: ${new Date().toISOString()}`,
       `file: ${args.file_analyzed}`,
@@ -229,7 +240,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       `analyst: skiro v2.1`
     ].join("\n");
     try {
-      writeFileSync(gateFile, content);
+      writeFileSync(gateFile, gateContent);
       return { content: [{ type: "text", text: `[GATE] .skiro_safety_gate created — flash/hwtest unlocked` }] };
     } catch (e) {
       return { content: [{ type: "text", text: `Failed to create gate: ${e.message}` }] };
