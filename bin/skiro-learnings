@@ -14,7 +14,7 @@ touch "$LEARNINGS_FILE"
 # ── add ──────────────────────────────────────────────────────────
 if [[ "$CMD" == "add" ]]; then
   python3 - "$LEARNINGS_FILE" "$@" <<'PYEOF'
-import json, sys
+import json, sys, fcntl, time
 from datetime import date
 lf = sys.argv[1]; args = sys.argv[2:]
 kv = {}; i = 0
@@ -67,9 +67,55 @@ if not found:
     if solution:
         print(f"    → {solution[:60]}")
 
+# lockfile 기반 atomic read-modify-write
+lockfile = lf + '.lock'
+lock_fd = None
+for attempt in range(10):
+    try:
+        lock_fd = open(lockfile, 'w')
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        break
+    except (IOError, BlockingIOError, OSError):
+        if lock_fd: lock_fd.close()
+        lock_fd = None
+        time.sleep(0.05 * (attempt + 1))
+
+# Re-read under lock (다른 프로세스가 이미 수정했을 수 있음)
+entries = []
+try:
+    for line in open(lf):
+        try: entries.append(json.loads(line.strip()))
+        except: pass
+except: pass
+
+found = False
+for e in entries:
+    if e.get('problem') == problem or e.get('lesson') == problem:
+        e['count'] = e.get('count', 1) + 1
+        e['last_seen'] = date.today().isoformat()
+        if solution:
+            e['solution'] = solution
+            e['status'] = 'solved'
+        found = True
+        break
+
+if not found:
+    status2 = 'solved' if solution else 'unsolved'
+    entries.append({
+        'date': date.today().isoformat(), 'category': category,
+        'severity': severity, 'problem': problem, 'solution': solution,
+        'status': status2, 'context': context, 'count': 1, 'promoted': False
+    })
+
 with open(lf, 'w') as f:
     for e in entries:
         f.write(json.dumps(e, ensure_ascii=False) + '\n')
+
+if lock_fd:
+    fcntl.flock(lock_fd, fcntl.LOCK_UN)
+    lock_fd.close()
+    try: import os; os.unlink(lockfile)
+    except: pass
 PYEOF
 
 # ── solve ────────────────────────────────────────────────────────
@@ -119,6 +165,18 @@ entry['status'] = 'solved'
 entry['solved_date'] = date.today().isoformat()
 entries[matched_idx] = entry
 
+import fcntl, time
+for attempt in range(5):
+    try:
+        fd = open(lf, 'a')
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        break
+    except (IOError, BlockingIOError):
+        time.sleep(0.05 * (attempt + 1))
+        fd = None
+if fd:
+    fcntl.flock(fd, fcntl.LOCK_UN)
+    fd.close()
 with open(lf, 'w') as f:
     for e in entries:
         f.write(json.dumps(e, ensure_ascii=False) + '\n')

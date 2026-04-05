@@ -25,10 +25,11 @@ except:
 
 # ── 위험 명령어 감지 (POSIX: 개별 grep) ──────────────────────────
 is_dangerous=0
-for pattern in "openocd" "teensy_loader" "esptool" "st-flash" "pyocd" \
-               "JLinkExe" "jlink" "nrfjprog" "skiro-flash" \
+for pattern in "openocd" "teensy_loader" "esptool" "st-flash" "st-link_cli" "pyocd" \
+               "JLinkExe" "jlink" "nrfjprog" "skiro-flash" "dfu-util" \
                "make flash" "make upload" "ninja flash" \
-               "pio run -t upload" "flash_tool" "hwtest" "hw_test"; do
+               "pio run -t upload" "pio run --target upload" \
+               "flash_tool" "hwtest" "hw_test"; do
     echo "$COMMAND" | grep -qiF "$pattern" && is_dangerous=1 && break
 done
 

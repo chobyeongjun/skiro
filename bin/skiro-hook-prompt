@@ -53,18 +53,24 @@ is_solution=0
 
 for p in "안됐어" "안됩니다" "안되네" "실패했어" "실패함" "에러" "오류" "버그" \
           "이상하게" "이상한데" "이상해" "안 되더라" "안되더라" \
-          "동작 안 해" "작동 안 해" "문제 생겼" "문제가 있" \
+          "동작 안 해" "동작 안 함" "작동 안 해" "작동 안 함" "문제 생겼" "문제가 있" \
           "점프했어" "튀어" "튀는데" "안 됐어" "안됐" "안 돼" \
+          "발생했" "발생해" "터졌어" "죽었어" "멈췄어" "먹통" \
+          "segfault" "났어" "났는데" "안돼" "빌드가" "컴파일" \
           "not working" "doesnt work" "failed" "error" "bug" \
           "broken" "crashed" "unexpected" "wrong output" \
-          "issue" "problem" "wrong" "jump" "misfire"; do
+          "issue" "problem" "wrong" "jump" "misfire" \
+          "fault" "hang" "freeze" "timeout" "overflow" "leak"; do
     echo "$MSG" | grep -qiF "$p" && is_problem=1 && break
 done
 
 # ── 해결 신호 ────────────────────────────────────────────────────
-for p in "됐어" "됩니다" "됐다" "해결됐" "이렇게 하니까" "이렇게 하면 돼" \
+for p in "해결됐어" "해결됐다" "해결됐습니다" "이렇게 하니까" "이렇게 하면 돼" \
           "알고 보니" "알고보니" "fix는" "해결책은" "방법은" \
-          "fixed" "solved" "it works" "worked" "the fix is" "turns out"; do
+          "정상 작동합니다" "작동이 됩니다" "해결했어" "해결했다" "고쳤어" "고쳤다" \
+          "되더라고요" "이제 됩니다" "해결방법은" "해결된 것 같아" \
+          "fixed" "solved" "it works now" "problem solved" "the fix is" "turns out" \
+          "working now" "resolved" "figured out" "the solution"; do
     echo "$MSG" | grep -qiF "$p" && is_solution=1 && break
 done
 
@@ -140,7 +146,12 @@ except: pass
 " 2>/dev/null)
     [ -z "$SOLUTION" ] && exit 0
 
-    "$LEARNINGS" solve --solution "$SOLUTION" 2>/dev/null
+    # unsolved 항목 있으면 연결, 없으면 새 solved 항목으로 저장
+    SOLVE_OUT=$("$LEARNINGS" solve --solution "$SOLUTION" 2>/dev/null)
+    if echo "$SOLVE_OUT" | grep -q "연결할 unsolved"; then
+        # unsolved 없음 → 새 solved 항목으로 직접 저장
+        "$LEARNINGS" add             --problem "$SOLUTION"             --solution "$SOLUTION"             --category "process"             --severity "INFO"             --context "$TODAY hook-prompt(solution)" 2>/dev/null
+    fi
 
     CHECKLIST=""
     GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
