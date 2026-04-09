@@ -1,0 +1,22 @@
+[
+  {"query": "로봇 팔 tracking error RMSE 구해줘", "should_trigger": true},
+  {"query": "제어 성능 bandwidth 분석해줘", "should_trigger": true},
+  {"query": "force-displacement 커브 그려줘", "should_trigger": true},
+  {"query": "FFT 분석해서 주파수 응답 봐줘", "should_trigger": true},
+  {"query": "두 조건 t-test로 비교해줘", "should_trigger": true},
+  {"query": "실험 결과 matplotlib figure 만들어줘", "should_trigger": true},
+  {"query": "LaTeX 표로 실험 결과 정리해줘, IEEE 형식", "should_trigger": true},
+  {"query": "trajectory tracking error 프로파일 그려줘", "should_trigger": true},
+  {"query": "3개 조건 ANOVA로 비교해줘", "should_trigger": true},
+  {"query": "PSD 분석해서 진동 성분 확인해줘", "should_trigger": true},
+  {"query": "gait cycle percentage 구해줘", "should_trigger": false},
+  {"query": "heel strike 검출해줘", "should_trigger": false},
+  {"query": "stride time 구해줘", "should_trigger": false},
+  {"query": "모터 안전 검증해줘", "should_trigger": false},
+  {"query": "하드웨어 테스트해줘", "should_trigger": false},
+  {"query": "GUI 만들어줘", "should_trigger": false},
+  {"query": "데이터 CSV 변환해줘", "should_trigger": false},
+  {"query": "펌웨어 업로드해줘", "should_trigger": false},
+  {"query": "실험 프로토콜 설계해줘", "should_trigger": false},
+  {"query": "주식 차트 분석해줘", "should_trigger": false}
+]

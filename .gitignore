@@ -1,0 +1,10 @@
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+skiro-ms4/
+settings-template.json
+bin/node_modules/
+bin/package-lock.json
+cowork/node_modules/
+cowork/package-lock.json

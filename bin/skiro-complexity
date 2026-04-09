@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+# skiro-complexity v1.1 — MS4 complexity scorer (bugfix: grep -c → grep | wc -l)
+# Usage: skiro-complexity <source_file> [--json]
+
+FILE="${1:-}"
+JSON_MODE="${2:-}"
+
+if [[ -z "$FILE" ]]; then
+  echo "Usage: skiro-complexity <source_file> [--json]" >&2
+  exit 1
+fi
+
+if [[ ! -f "$FILE" ]]; then
+  echo "ERROR: file not found: $FILE" >&2
+  echo "tier=full modules=p1-scope,p2-checklist,p3-fork,p4-gate reason=file_not_found"
+  exit 0
+fi
+
+# ── 핵심 수정: grep | wc -l 패턴 (항상 exit 0, 0 반환 보장) ──
+count() { grep -E "$1" "$FILE" 2>/dev/null | wc -l | tr -d ' '; }
+has()   { grep -qE "$1" "$FILE" 2>/dev/null && echo 1 || echo 0; }
+
+LOC=$(wc -l < "$FILE" 2>/dev/null | tr -d ' ')
+LOC_SCORE=$(( LOC / 50 ))
+[[ $LOC_SCORE -gt 10 ]] && LOC_SCORE=10
+
+ISR=$(count    '^void[[:space:]]+[A-Za-z0-9_]+_IRQHandler|__interrupt|ISR[[:space:]]*\(|portYIELD_FROM_ISR')
+ISR_SCORE=$(( ISR * 15 ))
+
+THREAD=$(count 'xTaskCreate|xTaskCreateStatic|pthread_create|osThreadNew|std::thread|rclcpp::spin|ros::spin')
+THREAD_SCORE=$(( THREAD * 12 ))
+
+CAN=$(count    'HAL_CAN|CAN_Transmit|can_send|CAN_SendMsg|motor_send_can|MIT_can|AK[0-9]+')
+CAN_SCORE=$(( CAN * 8 ))
+
+MOTOR=$(count  '[Mm]otor|AK60|AK80|servo.*[Cc]ontrol|[Pp]ower[Aa]mp|[Tt]orque[Cc]md|[Cc]urrent[Cc]md')
+MOTOR_SCORE=$(( MOTOR * 5 ))
+[[ $MOTOR_SCORE -gt 30 ]] && MOTOR_SCORE=30
+
+RTOS=$(has     'FreeRTOS|cmsis_os|osKernelStart|vTaskStartScheduler|xSemaphore|xQueue')
+RTOS_SCORE=$(( RTOS * 20 ))
+
+SHARED=$(count 'volatile[[:space:]]+[A-Za-z]|extern[[:space:]]+volatile|__shared__|shared_buf|std::atomic')
+SHARED_SCORE=$(( SHARED * 10 ))
+[[ $SHARED_SCORE -gt 40 ]] && SHARED_SCORE=40
+
+DMA=$(count    'HAL_DMA|DMA_HandleTypeDef|HAL_ADC_Start_DMA|HAL_UART_.*DMA')
+DMA_SCORE=$(( DMA * 8 ))
+
+CTRL=$(count   '[Ii]mpedance|[Aa]dmittance|ILC|[Ii]terative.*[Ll]earning|ImpedanceControl|AdmittanceControl')
+CTRL_SCORE=$(( CTRL * 6 ))
+
+SCORE=$(( LOC_SCORE + ISR_SCORE + THREAD_SCORE + CAN_SCORE + MOTOR_SCORE + RTOS_SCORE + SHARED_SCORE + DMA_SCORE + CTRL_SCORE ))
+
+# ── 라우팅 ──
+if   [[ $SCORE -lt 30 ]]; then
+  TIER="fast";    MODULES="p1-scope,p2-checklist";                              FORK_LEVEL="none"
+elif [[ $SCORE -lt 80 ]]; then
+  TIER="partial"; MODULES="p1-scope,p2-checklist,p3-fork-sectionA,p4-gate-subset"; FORK_LEVEL="section_A_only"
+else
+  TIER="full";    MODULES="p1-scope,p2-checklist,p3-fork,p4-gate";             FORK_LEVEL="full"
+fi
+
+# domain skill 추가
+DOMAIN=""
+comm_hit=$(count  'HAL_CAN|can_bus|motor_can');                       [[ $comm_hit -gt 0 ]]  && DOMAIN="${DOMAIN:+$DOMAIN,}skiro-comm"
+[[ -n "$DOMAIN" && "$TIER" == "full" ]] && MODULES="$MODULES,$DOMAIN"
+
+# ── 출력 ──
+if [[ "$JSON_MODE" == "--json" ]]; then
+cat << JSON
+{
+  "file": "$FILE",
+  "loc": $LOC,
+  "score": $SCORE,
+  "tier": "$TIER",
+  "fork_level": "$FORK_LEVEL",
+  "modules": "$MODULES",
+  "breakdown": {
+    "loc": $LOC_SCORE, "isr": $ISR_SCORE, "thread": $THREAD_SCORE,
+    "can": $CAN_SCORE, "motor": $MOTOR_SCORE, "rtos": $RTOS_SCORE,
+    "shared_mem": $SHARED_SCORE, "dma": $DMA_SCORE, "control": $CTRL_SCORE
+  }
+}
+JSON
+else
+  echo "score=$SCORE tier=$TIER"
+  echo "modules=$MODULES"
+  echo "breakdown: loc=$LOC_SCORE isr=$ISR_SCORE thread=$THREAD_SCORE can=$CAN_SCORE motor=$MOTOR_SCORE rtos=$RTOS_SCORE shared=$SHARED_SCORE dma=$DMA_SCORE ctrl=$CTRL_SCORE"
+fi

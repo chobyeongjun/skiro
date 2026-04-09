@@ -1,0 +1,256 @@
+#!/bin/sh
+# skiro-hook-complexity v3.0 (POSIX sh 완전 호환)
+# PreToolUse hook: Read / Write / Edit / MultiEdit
+#
+# v3.0: Layer별 reference 자동 감지 추가
+#   - 파일 내용 스캔 → 관련 reference + 섹션 ID 출력
+#   - Claude는 이 힌트로 필요한 섹션만 부분 로드
+
+SKIRO_BIN="${SKIRO_BIN:-$HOME/skiro/bin}"
+COMPLEXITY="$SKIRO_BIN/skiro-complexity"
+[ -x "$COMPLEXITY" ] || exit 0
+
+INPUT=$(cat 2>/dev/null || true)
+[ -z "$INPUT" ] && exit 0
+
+TMPPY=$(mktemp /tmp/skiro-XXXXXX.py)
+printf 'import sys,json\ntry:\n d=json.load(sys.stdin)\n for k in ["file_path","path"]:\n  if k in d:\n   sys.stdout.write(d[k])\n   break\nexcept:pass\n' > "$TMPPY"
+FILE_PATH=$(echo "$INPUT" | python3 "$TMPPY" 2>/dev/null)
+rm -f "$TMPPY"
+
+[ -z "$FILE_PATH" ] && exit 0
+
+EXT="${FILE_PATH##*.}"
+is_source=0
+for e in c cpp h hpp py m ino; do
+    [ "$EXT" = "$e" ] && is_source=1 && break
+done
+[ "$is_source" = "0" ] && exit 0
+[ -f "$FILE_PATH" ] || exit 0
+
+# ── 1. 복잡도 분석 (기존) ────────────────────────────────────────
+RESULT=$("$COMPLEXITY" "$FILE_PATH" --json 2>/dev/null) || exit 0
+[ -z "$RESULT" ] && exit 0
+
+TMPPY=$(mktemp /tmp/skiro-XXXXXX.py)
+printf 'import sys,json\nd=json.load(sys.stdin)\nprint(d.get("score",0))\nprint(d.get("tier","fast"))\nprint(d.get("modules",""))\n' > "$TMPPY"
+PARSED=$(echo "$RESULT" | python3 "$TMPPY" 2>/dev/null)
+rm -f "$TMPPY"
+[ -z "$PARSED" ] && exit 0
+
+SCORE=$(echo "$PARSED" | sed -n '1p')
+TIER=$(echo  "$PARSED" | sed -n '2p')
+MODULES=$(echo "$PARSED" | sed -n '3p')
+
+[ "$SCORE" -lt 10 ] && exit 0
+
+CACHE_DIR="$(pwd)/.skiro"
+mkdir -p "$CACHE_DIR"
+echo "$RESULT" > "$CACHE_DIR/last-complexity.json"
+
+echo "[skiro] $FILE_PATH → score=$SCORE tier=$TIER"
+[ -n "$MODULES" ] && echo "[skiro] Load phases: $MODULES"
+case "$TIER" in
+    partial|full) echo "[skiro] Safety analysis required before flash/hwtest" ;;
+esac
+
+# ── 2. Reference 자동 감지 (v3.1) ──────────────────────────────
+# 단일 grep으로 모든 트리거 키워드 검색 (성능: 1회 파일 스캔)
+SCAN=$(grep -noE 'set_torque|set_current|set_force|write_pwm|set_pwm|motor_set|PWM.*duty|CCR[0-9]|rate_limit|ramp|slew|integral[[:space:]]*\+=|Ki[[:space:]]*\*|anti.?windup|prev_error|last_error|derivative|encoder|count.*prev|multi_turn|set_direction|REVERSE|motor_enable|motor_disable|can_send|spi_write.*motor|CAN_Transmit|comm_fail|temperature|overtemp|set_position|set_angle|JOINT_MIN|JOINT_MAX|overspeed|MAX_SPEED|MAX_CURRENT|current_limit|overcurrent|disable_motor|Kp[^a-zA-Z]|Ki[^a-zA-Z]|Kd[^a-zA-Z]|gain_schedule|CUTOFF|cutoff_freq|CONTROL_FREQ|stop_motor|motor_stop|brake|coast|encoder_raw|CPR|FAULT_ENCODER|restore_last_state|clear_all_commands|gyro.*angle|accel.*angle|complementary|madgwick|mahony|atan2.*accel|atan2.*mag|read_force|get_force|load_cell|gravity.*comp|wrench|calibrat|force_sensor|alpha.*filter|complementary_filter|kalman|process_noise|fault.*sensor|outlier|filtered_value|moving_avg|WINDOW_SIZE|adc_raw|ADC_RESOLUTION|i2c_read.*0x6|SPI.*PRESCALER|read_imu|read_sensor|timestamp|ISR_Handler|IRQHandler|__interrupt|portYIELD|xTaskCreate|pthread_create|osThread|xSemaphore|xQueue|mutex|DMA_Handle|HAL_DMA|volatile[[:space:]]|extern.*volatile|std::atomic|delay_ms|HAL_Delay|vTaskDelay|TIM.*ARR|prescaler|watchdog|IWDG|WWDG|malloc|free.*\(|heap|stack_size|ring_buf|int16_t|int8_t|uint16_t|uint8_t|float.*==|fabs|FLT_EPSILON|DEG_TO_RAD|RAD_TO_DEG|M_PI.*180|degrees.*radian|GPIO_Init|GPIO_PIN|HAL_GPIO|HAL_ADC|ADC_GetValue|adc_read|SPI_Transmit|I2C_Master|HAL_SPI|HAL_I2C|switch.*state|case.*STATE|default:|ESTOP|e_stop|emergency_stop|feed_watchdog|kick_wdt|FSM|state_machine|force_limit|max_force|contact_force|speed_limit|safety_speed|safe_distance|SIL[0-9]|safety_function|safe_state|PL_[a-e]|dual_channel|redundant|impedance|admittance|ImpedanceControl|AdmittanceControl|stiffness|damping|inertia|passiv|virtual_mass|euler.*integrate|mode_switch|bumpless|policy|predict|inference|torch|tensorflow|gymnasium|rl_|reward|sim2real|fallback.*control|timeout.*policy|action_space|action_bound|Box.*low.*high|control_freq|sim_dt|CONTROL_HZ|policy_freq|distill|teacher.*student|onnx_export|tflite|state_estimate|sensor_fusion|ekf.*policy|observation.*sensor' "$FILE_PATH" 2>/dev/null | head -120)
+
+[ -z "$SCAN" ] && exit 0
+
+# ── Layer 1: 하드웨어 인터페이스 (패러다임 무관) ─────────────────
+REF_MOTOR=""
+REF_SENSOR=""
+REF_RT=""
+REF_SAFETY=""
+
+# motor-control-patterns.md (M01-M22)
+echo "$SCAN" | grep -qE 'set_torque|set_current|set_force|write_pwm|motor_set' && REF_MOTOR="$REF_MOTOR M01"
+echo "$SCAN" | grep -qE 'MAX_CURRENT|current_limit|overcurrent|disable_motor' && REF_MOTOR="$REF_MOTOR M02"
+echo "$SCAN" | grep -qE 'PWM.*duty|CCR[0-9]' && REF_MOTOR="$REF_MOTOR M03"
+echo "$SCAN" | grep -qE 'rate_limit|ramp|slew' || { echo "$SCAN" | grep -qE 'set_torque|set_force' && REF_MOTOR="$REF_MOTOR M04"; }
+echo "$SCAN" | grep -qE 'integral.*\+=|Ki.*\*|anti.?windup' && REF_MOTOR="$REF_MOTOR M05"
+echo "$SCAN" | grep -qE 'prev_error|last_error|derivative' && REF_MOTOR="$REF_MOTOR M06,M07"
+echo "$SCAN" | grep -qE 'Kp[^a-zA-Z]|Ki[^a-zA-Z]|Kd[^a-zA-Z]|gain_schedule' && REF_MOTOR="$REF_MOTOR M09"
+echo "$SCAN" | grep -qE 'CUTOFF|cutoff_freq|CONTROL_FREQ' && REF_MOTOR="$REF_MOTOR M10"
+echo "$SCAN" | grep -qE 'encoder|count.*prev|multi_turn' && REF_MOTOR="$REF_MOTOR M11,M12"
+echo "$SCAN" | grep -qE 'encoder_raw|CPR' && REF_MOTOR="$REF_MOTOR M13"
+echo "$SCAN" | grep -qE 'stop_motor|motor_stop|brake|coast' && REF_MOTOR="$REF_MOTOR M14"
+echo "$SCAN" | grep -qE 'set_direction|REVERSE' && REF_MOTOR="$REF_MOTOR M15"
+echo "$SCAN" | grep -qE 'motor_enable|motor_disable' && REF_MOTOR="$REF_MOTOR M16"
+echo "$SCAN" | grep -qE 'can_send|spi_write.*motor|CAN_Transmit|comm_fail' && REF_MOTOR="$REF_MOTOR M17"
+echo "$SCAN" | grep -qE 'temperature|overtemp' && REF_MOTOR="$REF_MOTOR M18"
+echo "$SCAN" | grep -qE 'set_position|set_angle|JOINT_MIN|JOINT_MAX' && REF_MOTOR="$REF_MOTOR M19"
+echo "$SCAN" | grep -qE 'FAULT_ENCODER' && REF_MOTOR="$REF_MOTOR M20"
+echo "$SCAN" | grep -qE 'restore_last_state|clear_all_commands' && REF_MOTOR="$REF_MOTOR M21"
+echo "$SCAN" | grep -qE 'overspeed|MAX_SPEED' && REF_MOTOR="$REF_MOTOR M22"
+
+# sensor-integration.md (I/F/E/SF/C/D/T)
+echo "$SCAN" | grep -qE 'gyro.*angle|accel.*angle|complementary|madgwick|mahony' && REF_SENSOR="$REF_SENSOR I01"
+echo "$SCAN" | grep -qE 'atan2.*accel' && REF_SENSOR="$REF_SENSOR I02"
+echo "$SCAN" | grep -qE 'atan2.*mag' && REF_SENSOR="$REF_SENSOR I03"
+echo "$SCAN" | grep -qE 'read_force|get_force|load_cell' && REF_SENSOR="$REF_SENSOR F01"
+echo "$SCAN" | grep -qE 'gravity.*comp|wrench' && REF_SENSOR="$REF_SENSOR F02"
+echo "$SCAN" | grep -qE 'force_sensor|calibrat' && REF_SENSOR="$REF_SENSOR F03,C01"
+echo "$SCAN" | grep -qE 'alpha.*filter|complementary_filter' && REF_SENSOR="$REF_SENSOR SF01"
+echo "$SCAN" | grep -qE 'kalman|process_noise' && REF_SENSOR="$REF_SENSOR SF02"
+echo "$SCAN" | grep -qE 'fault.*sensor|outlier' && REF_SENSOR="$REF_SENSOR SF03"
+echo "$SCAN" | grep -qE 'filtered_value' && REF_SENSOR="$REF_SENSOR D01"
+echo "$SCAN" | grep -qE 'moving_avg|WINDOW_SIZE' && REF_SENSOR="$REF_SENSOR D02"
+echo "$SCAN" | grep -qE 'adc_raw|ADC_RESOLUTION' && REF_SENSOR="$REF_SENSOR D03"
+echo "$SCAN" | grep -qE 'read_imu|read_sensor' && { echo "$SCAN" | grep -qE 'timestamp' || REF_SENSOR="$REF_SENSOR D04"; }
+echo "$SCAN" | grep -qE 'i2c_read.*0x6|SPI.*PRESCALER' && REF_SENSOR="$REF_SENSOR T02,T03"
+
+# realtime-pitfalls.md (P01-P34 전체 커버)
+echo "$SCAN" | grep -qE 'delay_ms|HAL_Delay|vTaskDelay' && REF_RT="$REF_RT P01"
+echo "$SCAN" | grep -qE 'TIM.*ARR|prescaler' && REF_RT="$REF_RT P02,P03"
+echo "$SCAN" | grep -qE 'watchdog|IWDG|WWDG' && REF_RT="$REF_RT P07"
+echo "$SCAN" | grep -qE 'ISR_Handler|IRQHandler|__interrupt|portYIELD' && REF_RT="$REF_RT P08,P09"
+echo "$SCAN" | grep -qE 'volatile|extern.*volatile|std::atomic' && REF_RT="$REF_RT P09"
+echo "$SCAN" | grep -qE 'malloc|free.*\(|heap|stack_size' && REF_RT="$REF_RT P13,P14,P15"
+echo "$SCAN" | grep -qE 'DMA_Handle|HAL_DMA' && REF_RT="$REF_RT P16"
+echo "$SCAN" | grep -qE 'ring_buf' && REF_RT="$REF_RT P17"
+echo "$SCAN" | grep -qE 'xTaskCreate|pthread_create|osThread' && REF_RT="$REF_RT P18,P19"
+echo "$SCAN" | grep -qE 'xSemaphore|xQueue|mutex' && REF_RT="$REF_RT P19,P20,P21"
+echo "$SCAN" | grep -qE 'int16_t|int8_t|uint16_t|uint8_t' && REF_RT="$REF_RT P22"
+echo "$SCAN" | grep -qE 'float.*==|fabs|FLT_EPSILON' && REF_RT="$REF_RT P23"
+echo "$SCAN" | grep -qE 'DEG_TO_RAD|RAD_TO_DEG|M_PI.*180|degrees.*radian' && REF_RT="$REF_RT P25"
+echo "$SCAN" | grep -qE 'GPIO_Init|GPIO_PIN|HAL_GPIO' && REF_RT="$REF_RT P27"
+echo "$SCAN" | grep -qE 'HAL_ADC|ADC_GetValue|adc_read' && REF_RT="$REF_RT P28"
+echo "$SCAN" | grep -qE 'SPI_Transmit|I2C_Master|HAL_SPI|HAL_I2C' && REF_RT="$REF_RT P29"
+echo "$SCAN" | grep -qE 'switch.*state|case.*STATE|FSM|state_machine' && REF_RT="$REF_RT P31,P32"
+echo "$SCAN" | grep -qE 'ESTOP|e_stop|emergency_stop' && REF_RT="$REF_RT P33"
+echo "$SCAN" | grep -qE 'feed_watchdog|kick_wdt' && REF_RT="$REF_RT P34"
+
+# safety-standards.md (신규)
+echo "$SCAN" | grep -qE 'force_limit|max_force|contact_force' && REF_SAFETY="$REF_SAFETY SS04-PFL"
+echo "$SCAN" | grep -qE 'speed_limit|safety_speed|safe_distance' && REF_SAFETY="$REF_SAFETY SS05-SSM"
+echo "$SCAN" | grep -qE 'SIL[0-9]|safety_function|safe_state' && REF_SAFETY="$REF_SAFETY IEC-61508"
+echo "$SCAN" | grep -qE 'PL_[a-e]|dual_channel|redundant' && REF_SAFETY="$REF_SAFETY ISO-13849"
+echo "$SCAN" | grep -qE 'ESTOP|e_stop|emergency_stop' && REF_SAFETY="$REF_SAFETY ISO-10218"
+
+# ── Layer 2: 알고리즘 (패러다임 종속) ────────────────────────────
+REF_IMP=""
+REF_RL=""
+
+# impedance-control-stability.md (S01-S12)
+echo "$SCAN" | grep -qE 'impedance|admittance|ImpedanceControl|AdmittanceControl' && REF_IMP="$REF_IMP S01,S02"
+echo "$SCAN" | grep -qE 'stiffness|damping|inertia|passiv' && REF_IMP="$REF_IMP S01,S04"
+echo "$SCAN" | grep -qE 'virtual_mass' && REF_IMP="$REF_IMP S03"
+echo "$SCAN" | grep -qE 'euler.*integrate' && REF_IMP="$REF_IMP S05"
+echo "$SCAN" | grep -qE 'mode_switch|bumpless' && REF_IMP="$REF_IMP S12"
+
+# rl-deployment.md (RL01-RL10)
+echo "$SCAN" | grep -qE 'policy|predict|inference|torch|tensorflow|gymnasium' && REF_RL="$REF_RL RL01,RL03,RL08"
+echo "$SCAN" | grep -qE 'rl_|reward|sim2real' && REF_RL="$REF_RL RL02,RL05"
+echo "$SCAN" | grep -qE 'fallback.*control|timeout.*policy' && REF_RL="$REF_RL RL04"
+echo "$SCAN" | grep -qE 'action_space|action_bound|Box.*low.*high' && REF_RL="$REF_RL RL06"
+echo "$SCAN" | grep -qE 'control_freq|sim_dt|CONTROL_HZ|policy_freq' && REF_RL="$REF_RL RL07"
+echo "$SCAN" | grep -qE 'distill|teacher.*student|onnx_export|tflite' && REF_RL="$REF_RL RL09"
+echo "$SCAN" | grep -qE 'state_estimate|sensor_fusion|ekf.*policy|observation.*sensor' && REF_RL="$REF_RL RL10"
+
+# ── 3. hardware.yaml 감지 ───────────────────────────────────────
+HW_YAML=""
+for hw_path in "$(pwd)/hardware.yaml" "$(dirname "$FILE_PATH")/hardware.yaml" "$(dirname "$FILE_PATH")/../hardware.yaml"; do
+    [ -f "$hw_path" ] && HW_YAML="$hw_path" && break
+done
+
+# ── 출력: Claude에게 힌트 (파일별 1회만 — 이미 보여줬으면 스킵) ──
+REF_HASH_FILE="$CACHE_DIR/.ref-$(echo "$FILE_PATH" | md5sum 2>/dev/null | cut -c1-8 || echo "$FILE_PATH" | md5 2>/dev/null | cut -c1-8 || echo "f")"
+SKIP_REFS=0
+[ -f "$REF_HASH_FILE" ] && SKIP_REFS=1
+
+has_refs=0
+
+if [ "$SKIP_REFS" = "0" ]; then
+    if [ -n "$(echo "$REF_MOTOR" | tr -d ' ')" ]; then
+        echo "[skiro/ref] L1 motor-control-patterns.md §$REF_MOTOR"
+        has_refs=1
+    fi
+    if [ -n "$(echo "$REF_SENSOR" | tr -d ' ')" ]; then
+        echo "[skiro/ref] L1 sensor-integration.md §$REF_SENSOR"
+        has_refs=1
+    fi
+    if [ -n "$(echo "$REF_RT" | tr -d ' ')" ]; then
+        echo "[skiro/ref] L1 realtime-pitfalls.md §$REF_RT"
+        has_refs=1
+    fi
+    if [ -n "$(echo "$REF_SAFETY" | tr -d ' ')" ]; then
+        echo "[skiro/ref] L1 safety-standards.md §$REF_SAFETY"
+        has_refs=1
+    fi
+    if [ -n "$(echo "$REF_IMP" | tr -d ' ')" ]; then
+        echo "[skiro/ref] L2 impedance-control-stability.md §$REF_IMP"
+        has_refs=1
+    fi
+    if [ -n "$(echo "$REF_RL" | tr -d ' ')" ]; then
+        echo "[skiro/ref] L2 rl-deployment.md §$REF_RL"
+        has_refs=1
+    fi
+    if [ "$has_refs" = "1" ]; then
+        echo "[skiro/ref] INDEX first 50 lines → section partial load"
+        touch "$REF_HASH_FILE"
+    fi
+fi
+
+if [ -n "$HW_YAML" ]; then
+    echo "[skiro/hw] $HW_YAML"
+fi
+
+# ── 4. 관련 과거 에러 표시 (같은 분야 실수 반복 방지) ──────────────
+LEARN_CATS=""
+[ -n "$(echo "$REF_MOTOR" | tr -d ' ')" ] && LEARN_CATS="hardware"
+[ -n "$(echo "$REF_SENSOR" | tr -d ' ')" ] && LEARN_CATS="$LEARN_CATS hardware"
+[ -n "$(echo "$REF_RT" | tr -d ' ')" ] && LEARN_CATS="$LEARN_CATS software"
+[ -n "$(echo "$REF_SAFETY" | tr -d ' ')" ] && LEARN_CATS="$LEARN_CATS safety"
+[ -n "$(echo "$REF_IMP" | tr -d ' ')" ] && LEARN_CATS="$LEARN_CATS control"
+[ -n "$(echo "$REF_RL" | tr -d ' ')" ] && LEARN_CATS="$LEARN_CATS experiment control"
+LEARN_CATS=$(echo "$LEARN_CATS" | tr ' ' '\n' | sort -u | tr '\n' ' ' | xargs)
+
+if [ "$SKIP_REFS" = "0" ] && [ -n "$LEARN_CATS" ] && [ -x "$SKIRO_BIN/skiro-learnings" ]; then
+    LEARNINGS_FILE="${SKIRO_LEARNINGS:-$HOME/.skiro/learnings.jsonl}"
+    if [ -f "$LEARNINGS_FILE" ] && [ -s "$LEARNINGS_FILE" ]; then
+        for cat in $LEARN_CATS; do
+            PAST=$(SKIRO_LEARNINGS="$LEARNINGS_FILE" "$SKIRO_BIN/skiro-learnings" list --category "$cat" --status unsolved --last 3 2>/dev/null | head -3)
+            [ -n "$PAST" ] && echo "[skiro/learn] $cat 미해결:" && echo "$PAST"
+        done
+    fi
+fi
+
+# ── 5. Blast radius 경고 (.skiro/architecture.json) ──────────────
+ARCH_JSON=""
+for arch_path in "$(pwd)/.skiro/architecture.json" "$(dirname "$FILE_PATH")/.skiro/architecture.json" "$(dirname "$FILE_PATH")/../.skiro/architecture.json"; do
+    [ -f "$arch_path" ] && ARCH_JSON="$arch_path" && break
+done
+
+if [ -n "$ARCH_JSON" ] && command -v node >/dev/null 2>&1; then
+    BLAST=$(node -e "
+try {
+  const arch = JSON.parse(require('fs').readFileSync('$ARCH_JSON','utf8'));
+  const root = arch.root || require('path').dirname('$ARCH_JSON').replace(/\/.skiro$/, '');
+  const rel = require('path').relative(root, '$FILE_PATH');
+  const g = arch.graph || {};
+  const f = g[rel] || g['$FILE_PATH'];
+  if (f && f.imported_by && f.imported_by.length > 0) {
+    const direct = f.imported_by.length;
+    const indirect = new Set();
+    for (const dep of f.imported_by) {
+      const d = g[dep];
+      if (d && d.imported_by) d.imported_by.forEach(x => indirect.add(x));
+    }
+    indirect.delete(rel);
+    const total = direct + indirect.size;
+    if (total >= 2) {
+      console.log('[skiro/blast] 이 파일 수정 시 직접 ' + direct + '개 + 간접 ' + indirect.size + '개 = 총 ' + total + '개 파일 영향');
+      if (direct <= 5) console.log('[skiro/blast] 영향 파일: ' + f.imported_by.join(', '));
+      if ((arch.hubFiles || []).includes(rel)) console.log('[skiro/blast] HUB 파일 — 수정 시 광범위 영향. 인터페이스 변경 주의.');
+    }
+  }
+} catch(e) {}
+" 2>/dev/null)
+    [ -n "$BLAST" ] && echo "$BLAST"
+fi
+
+exit 0

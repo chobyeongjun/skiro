@@ -1,0 +1,58 @@
+{
+  "name": "skiro",
+  "version": "0.6.0",
+  "description": "AI development harness for robot engineers — Claude Code skill + MCP server",
+  "type": "module",
+  "bin": {
+    "skiro-mcp-server": "./bin/skiro-mcp-server.mjs",
+    "skiro-complexity": "./bin/skiro-complexity",
+    "skiro-learnings": "./bin/skiro-learnings",
+    "skiro-init": "./bin/skiro-init",
+    "skiro-session": "./bin/skiro-session",
+    "skiro-update": "./bin/skiro-update"
+  },
+  "scripts": {
+    "postinstall": "cd bin && npm install --silent",
+    "test": "echo 'see tests/ directory'"
+  },
+  "files": [
+    "bin/",
+    "hooks/",
+    "references/",
+    "templates/",
+    "tests/",
+    "skiro-analyze/",
+    "skiro-comm/",
+    "skiro-data/",
+    "skiro-flash/",
+    "skiro-gui/",
+    "skiro-hwtest/",
+    "skiro-plan/",
+    "skiro-retro/",
+    "skiro-safety/",
+    "install.sh",
+    "SKILL.md",
+    "VOICE.md",
+    "CHECKLIST.md",
+    "hardware.yaml.template",
+    "LICENSE"
+  ],
+  "keywords": [
+    "claude-code",
+    "harness",
+    "robotics",
+    "firmware",
+    "mcp",
+    "safety",
+    "motor-control"
+  ],
+  "author": "Cho Byeongjun",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chobyeongjun/skiro.git"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

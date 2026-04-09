@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+echo "========================================"
+echo "  setup-skiro.sh is DEPRECATED"
+echo "========================================"
+echo ""
+echo "Use the new installation method:"
+echo ""
+echo "  # Install skiro (one time)"
+echo "  git clone https://github.com/chobyeongjun/skiro.git ~/.claude/skills/skiro"
+echo ""
+echo "  # Initialize a project"
+echo "  cd your-robot-project"
+echo "  ~/.claude/skills/skiro/bin/skiro-init"
+echo ""
+echo "See README.md for details."
+exit 1

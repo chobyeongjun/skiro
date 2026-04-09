@@ -1,0 +1,88 @@
+#!/bin/sh
+# skiro-hook-session v2.0 (POSIX sh 호환)
+# UserPromptSubmit hook: 세션 시작 시 learnings 로드
+# Fix v2.0: cwd 기반 TTL (프로젝트별 분리)
+
+SKIRO_BIN="${SKIRO_BIN:-$HOME/skiro/bin}"
+LEARNINGS="$SKIRO_BIN/skiro-learnings"
+[ -x "$LEARNINGS" ] || exit 0
+
+GLOBAL_SKIRO="$HOME/.skiro"
+mkdir -p "$GLOBAL_SKIRO"
+LEARNINGS_FILE="${SKIRO_LEARNINGS:-$GLOBAL_SKIRO/learnings.jsonl}"
+
+[ -f "$LEARNINGS_FILE" ] || exit 0
+[ -s "$LEARNINGS_FILE" ] || exit 0
+
+# Fix v2.0: cwd 해시 기반 session flag (프로젝트별 TTL)
+CWD_HASH=$(pwd | md5sum 2>/dev/null | cut -c1-8 || pwd | md5 2>/dev/null | cut -c1-8 || echo "global")
+SESSION_FLAG="$GLOBAL_SKIRO/.session-$CWD_HASH"
+
+if [ -f "$SESSION_FLAG" ]; then
+    if [ "$(uname)" = "Darwin" ]; then
+        flag_age=$(( ($(date +%s) - $(stat -f %m "$SESSION_FLAG" 2>/dev/null || echo 0)) / 60 ))
+    else
+        flag_age=$(( ($(date +%s) - $(stat -c %Y "$SESSION_FLAG" 2>/dev/null || echo 0)) / 60 ))
+    fi
+    [ "$flag_age" -lt 60 ] && exit 0
+fi
+
+touch "$SESSION_FLAG"
+
+# 새 세션: 이전 ref/learn 표시 플래그 초기화 (다시 보여주기 위해)
+rm -f "$(pwd)/.skiro/.ref-"* 2>/dev/null
+
+RECENT=$(SKIRO_LEARNINGS="$LEARNINGS_FILE" "$LEARNINGS" list --last 5 2>/dev/null)
+[ -z "$RECENT" ] && exit 0
+
+echo "[skiro/learn] recent:"
+echo "$RECENT"
+
+UNSOLVED=$(SKIRO_LEARNINGS="$LEARNINGS_FILE" "$LEARNINGS" list --status unsolved 2>/dev/null | grep -cF '[?]' || echo 0)
+[ "$UNSOLVED" -gt 0 ] && echo "[!] Unsolved: $UNSOLVED"
+
+PROMOTE=$(SKIRO_LEARNINGS="$LEARNINGS_FILE" "$LEARNINGS" promote 3 2>/dev/null)
+echo "$PROMOTE" | grep -qF "PROMOTE" && echo "[CHECKLIST] Ready to promote — run: skiro-learnings promote 3 --auto"
+
+# ── Codebase Map 자동 감지 ─────────────────────────────────────
+ARCH_JSON=".skiro/architecture.json"
+NEED_MAP=0
+IS_NEW_PROJECT=0
+
+if [ ! -f "$ARCH_JSON" ]; then
+    SRC_COUNT=$(find . -maxdepth 4 -type f \( -name "*.py" -o -name "*.c" -o -name "*.cpp" -o -name "*.h" -o -name "*.lua" -o -name "*.scone" -o -name "*.osim" \) ! -path "./.git/*" ! -path "./node_modules/*" ! -path "./__pycache__/*" 2>/dev/null | head -11 | wc -l)
+    [ "$SRC_COUNT" -ge 10 ] && NEED_MAP=1
+    # 첫 세션이면 온보딩
+    ONBOARD_FLAG="$GLOBAL_SKIRO/.onboard-$CWD_HASH"
+    [ ! -f "$ONBOARD_FLAG" ] && IS_NEW_PROJECT=1 && touch "$ONBOARD_FLAG"
+else
+    if [ "$(uname)" = "Darwin" ]; then
+        arch_age=$(( ($(date +%s) - $(stat -f %m "$ARCH_JSON" 2>/dev/null || echo 0)) / 3600 ))
+    else
+        arch_age=$(( ($(date +%s) - $(stat -c %Y "$ARCH_JSON" 2>/dev/null || echo 0)) / 3600 ))
+    fi
+    [ "$arch_age" -ge 24 ] && NEED_MAP=1
+fi
+
+if [ "$IS_NEW_PROJECT" = "1" ]; then
+    echo ""
+    echo "[skiro/onboard] 새 프로젝트. 파일 직접 접근 가능, 구조 파악 시 skiro_map_codebase 자동 실행."
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        HAS_REMOTE=$(git remote -v 2>/dev/null | head -1)
+        if [ -z "$HAS_REMOTE" ]; then
+            echo "[skiro/onboard] git remote 없음 — 수정 전 push 권장"
+        else
+            UNPUSHED=$(git log --oneline @{u}..HEAD 2>/dev/null | wc -l)
+            [ "$UNPUSHED" -gt 0 ] && echo "[skiro/onboard] 미푸시 커밋 ${UNPUSHED}개 — git push 권장"
+        fi
+    else
+        echo "[skiro/onboard] git 미초기화 — git init + push 권장"
+    fi
+fi
+
+if [ "$NEED_MAP" = "1" ]; then
+    echo ""
+    echo "[skiro/arch] 의존성 맵 없거나 만료 → skiro_map_codebase 호출 필요"
+fi
+
+exit 0

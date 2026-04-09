@@ -1,0 +1,22 @@
+[
+  {"query": "gait cycle percentage 구해줘", "should_trigger": true},
+  {"query": "heel strike 검출해줘, IMU 데이터로", "should_trigger": true},
+  {"query": "stride time이랑 cadence 구해줘", "should_trigger": true},
+  {"query": "stance phase랑 swing phase 비율 분석해줘", "should_trigger": true},
+  {"query": "보행 데이터 gait cycle로 정규화해줘", "should_trigger": true},
+  {"query": "좌우 대칭성 지수 구해줘, symmetry index", "should_trigger": true},
+  {"query": "double support time 계산해줘", "should_trigger": true},
+  {"query": "treadmill 보행 데이터에서 heel off 검출해줘", "should_trigger": true},
+  {"query": "exoskeleton 보행 실험 gait parameter 분석해줘", "should_trigger": true},
+  {"query": "GCP 기반으로 force profile 정규화해줘", "should_trigger": true},
+  {"query": "로봇 팔 RMSE 분석해줘", "should_trigger": false},
+  {"query": "force-displacement 커브 그려줘", "should_trigger": false},
+  {"query": "FFT 분석해줘", "should_trigger": false},
+  {"query": "모터 안전 검증해줘", "should_trigger": false},
+  {"query": "하드웨어 테스트해줘", "should_trigger": false},
+  {"query": "GUI 만들어줘", "should_trigger": false},
+  {"query": "데이터 CSV 변환해줘", "should_trigger": false},
+  {"query": "펌웨어 업로드해줘", "should_trigger": false},
+  {"query": "t-test로 조건 비교해줘", "should_trigger": false},
+  {"query": "matplotlib 그래프 스타일 수정해줘", "should_trigger": false}
+]

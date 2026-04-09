@@ -1,0 +1,408 @@
+#!/usr/bin/env bash
+# skiro-learnings v3.0
+# Fixes: --severity filter, solve latest-unsolved, promote --auto + dedup
+# Commands: add | solve | list | search | count | promote
+
+LEARNINGS_FILE="${SKIRO_LEARNINGS:-$HOME/.skiro/learnings.jsonl}"
+CHECKLIST_FILE="${SKIRO_CHECKLIST:-}"
+
+CMD="${1:-help}"
+shift || true
+mkdir -p "$(dirname "$LEARNINGS_FILE")"
+touch "$LEARNINGS_FILE"
+
+# ── add ──────────────────────────────────────────────────────────
+if [[ "$CMD" == "add" ]]; then
+  python3 - "$LEARNINGS_FILE" "$@" <<'PYEOF'
+import json, sys, fcntl, time
+from datetime import date
+lf = sys.argv[1]; args = sys.argv[2:]
+kv = {}; i = 0
+while i < len(args):
+    if args[i].startswith('--') and i+1 < len(args):
+        kv[args[i][2:]] = args[i+1]; i += 2
+    else: i += 1
+
+category = kv.get('category', 'process')
+severity = kv.get('severity', 'WARNING')
+problem  = kv.get('problem', kv.get('lesson', ''))
+solution = kv.get('solution', '')
+context  = kv.get('context', '')
+
+if not problem: sys.exit("ERROR: --problem 필수")
+
+entries = []
+for line in open(lf):
+    try: entries.append(json.loads(line.strip()))
+    except: pass
+
+found = False
+for e in entries:
+    if e.get('problem') == problem or e.get('lesson') == problem:
+        e['count'] = e.get('count', 1) + 1
+        e['last_seen'] = date.today().isoformat()
+        if solution:
+            e['solution'] = solution
+            e['status'] = 'solved'
+        found = True
+        status = e.get('status', 'unsolved')
+        print(f"Updated (x{e['count']}): [{status}] {problem[:50]}")
+        break
+
+if not found:
+    status = 'solved' if solution else 'unsolved'
+    entries.append({
+        'date':     date.today().isoformat(),
+        'category': category,
+        'severity': severity,
+        'problem':  problem,
+        'solution': solution,
+        'status':   status,
+        'context':  context,
+        'count':    1,
+        'promoted': False
+    })
+    flag = '✓' if solution else '?'
+    print(f"[{flag}] [{severity}/{category}] {problem[:60]}")
+    if solution:
+        print(f"    → {solution[:60]}")
+
+# lockfile 기반 atomic read-modify-write
+lockfile = lf + '.lock'
+lock_fd = None
+for attempt in range(10):
+    try:
+        lock_fd = open(lockfile, 'w')
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        break
+    except (IOError, BlockingIOError, OSError):
+        if lock_fd: lock_fd.close()
+        lock_fd = None
+        time.sleep(0.05 * (attempt + 1))
+
+# Re-read under lock (다른 프로세스가 이미 수정했을 수 있음)
+entries = []
+try:
+    for line in open(lf):
+        try: entries.append(json.loads(line.strip()))
+        except: pass
+except: pass
+
+found = False
+for e in entries:
+    if e.get('problem') == problem or e.get('lesson') == problem:
+        e['count'] = e.get('count', 1) + 1
+        e['last_seen'] = date.today().isoformat()
+        if solution:
+            e['solution'] = solution
+            e['status'] = 'solved'
+        found = True
+        break
+
+if not found:
+    status2 = 'solved' if solution else 'unsolved'
+    entries.append({
+        'date': date.today().isoformat(), 'category': category,
+        'severity': severity, 'problem': problem, 'solution': solution,
+        'status': status2, 'context': context, 'count': 1, 'promoted': False
+    })
+
+with open(lf, 'w') as f:
+    for e in entries:
+        f.write(json.dumps(e, ensure_ascii=False) + '\n')
+
+if lock_fd:
+    fcntl.flock(lock_fd, fcntl.LOCK_UN)
+    lock_fd.close()
+    try: import os; os.unlink(lockfile)
+    except: pass
+PYEOF
+
+# ── solve ────────────────────────────────────────────────────────
+elif [[ "$CMD" == "solve" ]]; then
+  python3 - "$LEARNINGS_FILE" "$@" <<'PYEOF'
+import json, sys
+from datetime import date
+lf = sys.argv[1]; args = sys.argv[2:]
+kv = {}; i = 0
+while i < len(args):
+    if args[i].startswith('--') and i+1 < len(args):
+        kv[args[i][2:]] = args[i+1]; i += 2
+    else: i += 1
+
+keyword  = kv.get('keyword', '')
+solution = kv.get('solution', '')
+if not solution: sys.exit("ERROR: --solution 필수")
+
+entries = []
+for line in open(lf):
+    try: entries.append(json.loads(line.strip()))
+    except: pass
+
+# keyword 있으면 매칭, 없으면 가장 최근 unsolved
+matched_idx = None
+if keyword:
+    for i, e in enumerate(entries):
+        prob = e.get('problem', e.get('lesson', ''))
+        if keyword.lower() in prob.lower() and e.get('status') != 'solved':
+            matched_idx = i
+            break
+
+if matched_idx is None:
+    # 가장 최근 unsolved (마지막 것)
+    for i in range(len(entries) - 1, -1, -1):
+        if entries[i].get('status') != 'solved':
+            matched_idx = i
+            break
+
+if matched_idx is None:
+    print("연결할 unsolved 항목 없음")
+    sys.exit(0)
+
+entry = entries[matched_idx]
+entry['solution'] = solution
+entry['status'] = 'solved'
+entry['solved_date'] = date.today().isoformat()
+entries[matched_idx] = entry
+
+import fcntl, time
+for attempt in range(5):
+    try:
+        fd = open(lf, 'a')
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        break
+    except (IOError, BlockingIOError):
+        time.sleep(0.05 * (attempt + 1))
+        fd = None
+if fd:
+    fcntl.flock(fd, fcntl.LOCK_UN)
+    fd.close()
+with open(lf, 'w') as f:
+    for e in entries:
+        f.write(json.dumps(e, ensure_ascii=False) + '\n')
+
+print(f"[✓ Solved] {entry.get('problem','')[:60]}")
+print(f"    → {solution[:60]}")
+PYEOF
+
+# ── list ─────────────────────────────────────────────────────────
+elif [[ "$CMD" == "list" ]]; then
+  python3 - "$LEARNINGS_FILE" "$@" <<'PYEOF'
+import json, sys
+lf = sys.argv[1]; args = sys.argv[2:]
+kv = {}; i = 0
+while i < len(args):
+    if args[i].startswith('--') and i+1 < len(args):
+        kv[args[i][2:]] = args[i+1]; i += 2
+    else: i += 1
+
+entries = []
+for line in open(lf):
+    try: entries.append(json.loads(line.strip()))
+    except: pass
+
+# Fix: --severity 필터 추가
+if kv.get('category'): entries = [e for e in entries if e.get('category') == kv['category']]
+if kv.get('status'):   entries = [e for e in entries if e.get('status')   == kv['status']]
+if kv.get('severity'): entries = [e for e in entries if e.get('severity') == kv['severity']]
+
+n = int(kv.get('last', 0))
+if n > 0: entries = entries[-n:]
+
+for e in entries:
+    status = e.get('status', 'unsolved')
+    flag = '✓' if status == 'solved' else '?'
+    cnt  = f" x{e['count']}" if e.get('count', 1) > 1 else ""
+    prom = " [P]" if e.get('promoted') else ""
+    sev  = e.get('severity', '?')
+    cat  = e.get('category', '?')
+    prob = e.get('problem', e.get('lesson', ''))
+    sol  = e.get('solution', '')
+    print(f"[{flag}][{sev}/{cat}]{cnt}{prom} {prob}")
+    if sol:
+        print(f"    → {sol}")
+    elif status == 'unsolved':
+        print(f"    → (미해결)")
+
+unsolved = sum(1 for e in entries if e.get('status') != 'solved')
+print(f"\nTotal: {len(entries)} (미해결: {unsolved})")
+PYEOF
+
+# ── search ───────────────────────────────────────────────────────
+elif [[ "$CMD" == "search" ]]; then
+  KW="${1:-}"; [[ -z "$KW" ]] && { echo "Usage: skiro-learnings search <keyword>"; exit 1; }
+  python3 - "$LEARNINGS_FILE" "$KW" <<'PYEOF'
+import json, sys
+lf, kw = sys.argv[1], sys.argv[2].lower(); out = []
+for line in open(lf):
+    try:
+        d = json.loads(line.strip())
+        prob = d.get('problem', d.get('lesson', ''))
+        sol  = d.get('solution', '')
+        if kw in prob.lower() or kw in sol.lower() or kw in d.get('category','').lower():
+            out.append(d)
+    except: pass
+for e in out:
+    flag = '✓' if e.get('status') == 'solved' else '?'
+    cnt  = f" x{e['count']}" if e.get('count', 1) > 1 else ""
+    print(f"[{flag}]{cnt} {e.get('problem', e.get('lesson',''))}")
+    if e.get('solution'):
+        print(f"    → {e['solution']}")
+print(f"\n{len(out)} results for '{sys.argv[2]}'")
+PYEOF
+
+# ── count ────────────────────────────────────────────────────────
+elif [[ "$CMD" == "count" ]]; then
+  python3 - "$LEARNINGS_FILE" <<'PYEOF'
+import json, sys, collections
+entries = []
+for line in open(sys.argv[1]):
+    try: entries.append(json.loads(line.strip()))
+    except: pass
+solved   = sum(1 for e in entries if e.get('status') == 'solved')
+promoted = sum(1 for e in entries if e.get('promoted'))
+by_cat   = collections.Counter(e.get('category','?') for e in entries)
+by_sev   = collections.Counter(e.get('severity','?') for e in entries)
+print(f"Total: {len(entries)}  (해결됨: {solved}  미해결: {len(entries)-solved}  승격됨: {promoted})")
+print("\nBy category:")
+for k, v in sorted(by_cat.items()): print(f"  {k}: {v}")
+print("\nBy severity:")
+for k, v in sorted(by_sev.items()): print(f"  {k}: {v}")
+PYEOF
+
+# ── promote ──────────────────────────────────────────────────────
+elif [[ "$CMD" == "promote" ]]; then
+  # Fix: --auto 옵션으로 CHECKLIST.md 자동 업데이트
+  AUTO=0; THRESHOLD=3
+  for arg in "$@"; do
+    case "$arg" in
+      --auto) AUTO=1 ;;
+      [0-9]*) THRESHOLD="$arg" ;;
+    esac
+  done
+
+  # CHECKLIST.md 경로 탐색 (git root → 현재 디렉토리 순)
+  CHECKLIST=""
+  if [[ -n "$SKIRO_CHECKLIST" && -f "$SKIRO_CHECKLIST" ]]; then
+    CHECKLIST="$SKIRO_CHECKLIST"
+  else
+    GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
+    [[ -n "$GIT_ROOT" && -f "$GIT_ROOT/CHECKLIST.md" ]] && CHECKLIST="$GIT_ROOT/CHECKLIST.md"
+    [[ -z "$CHECKLIST" && -f "$(pwd)/CHECKLIST.md" ]] && CHECKLIST="$(pwd)/CHECKLIST.md"
+  fi
+
+  python3 - "$LEARNINGS_FILE" "$THRESHOLD" "$AUTO" "$CHECKLIST" <<'PYEOF'
+import json, sys, re
+from datetime import date
+
+lf        = sys.argv[1]
+threshold = int(sys.argv[2])
+auto      = sys.argv[3] == "1"
+checklist = sys.argv[4] if len(sys.argv) > 4 else ""
+
+entries = []
+for line in open(lf):
+    try: entries.append(json.loads(line.strip()))
+    except: pass
+
+# Fix: promoted=True인 항목 제외 (중복 방지)
+cands = [
+    e for e in entries
+    if e.get('count', 1) >= threshold
+    and e.get('status') == 'solved'
+    and not e.get('promoted', False)
+]
+
+unsolved_cands = [
+    e for e in entries
+    if e.get('count', 1) >= threshold
+    and e.get('status') != 'solved'
+]
+
+if unsolved_cands:
+    print(f"[!] 반복 미해결 {len(unsolved_cands)}개 — 해결 후 promote 가능:")
+    for e in unsolved_cands:
+        print(f"    (x{e.get('count',1)}) [?] {e.get('problem','')[:60]}")
+
+if not cands:
+    already = sum(1 for e in entries if e.get('promoted'))
+    print(f"promote 후보 없음 (threshold={threshold}, 이미 승격됨: {already}개)")
+    sys.exit(0)
+
+print(f"[PROMOTE] {len(cands)}개 항목 → CHECKLIST.md 추가\n")
+
+# CHECKLIST.md 자동 업데이트
+added_to_checklist = []
+if auto and checklist:
+    with open(checklist, 'r') as f:
+        cl_content = f.read()
+
+    for e in cands:
+        cat   = e.get('category', 'process').upper()
+        prob  = e.get('problem', '')
+        sol   = e.get('solution', '')
+        entry_line = f"- [ ] {prob}\n  - 해결: {sol}"
+
+        # 이미 있는지 확인
+        if prob[:30] in cl_content:
+            print(f"  [SKIP] 이미 존재: {prob[:50]}")
+            continue
+
+        # 해당 카테고리 섹션 찾아서 추가
+        section_pattern = f"## [{cat}]"
+        if section_pattern in cl_content:
+            insert_pos = cl_content.index(section_pattern) + len(section_pattern)
+            # 섹션 다음 줄 찾기
+            next_newline = cl_content.index('\n', insert_pos)
+            cl_content = (cl_content[:next_newline+1] +
+                         entry_line + '\n' +
+                         cl_content[next_newline+1:])
+        else:
+            # 섹션 없으면 파일 끝에 추가
+            cl_content += f"\n## [{cat}]\n{entry_line}\n"
+
+        added_to_checklist.append(e)
+        print(f"  [+] {prob[:60]}")
+        print(f"      → {sol[:60]}")
+
+    with open(checklist, 'w') as f:
+        f.write(cl_content)
+
+    if added_to_checklist:
+        print(f"\n{len(added_to_checklist)}개 항목이 {checklist}에 추가됨")
+else:
+    for e in cands:
+        print(f"  (x{e.get('count',1)}) [ ] {e.get('problem','')[:60]}")
+        print(f"         해결: {e.get('solution','')[:60]}")
+    if not auto:
+        print(f"\n→ 자동 업데이트: skiro-learnings promote {threshold} --auto")
+    elif not checklist:
+        print(f"\n→ CHECKLIST.md 없음: git repo 루트에 생성하거나 SKIRO_CHECKLIST 환경변수 설정")
+
+# promoted 플래그 업데이트 (auto 여부와 무관하게 제안된 항목은 표시)
+updated_entries = []
+for e in entries:
+    if e in cands or (auto and e in added_to_checklist):
+        e['promoted'] = True
+        e['promoted_date'] = date.today().isoformat()
+    updated_entries.append(e)
+
+with open(lf, 'w') as f:
+    for e in updated_entries:
+        f.write(json.dumps(e, ensure_ascii=False) + '\n')
+PYEOF
+
+# ── help ─────────────────────────────────────────────────────────
+else
+  echo "Usage: skiro-learnings <cmd>"
+  echo "  add     --problem <문제> [--solution <해결책>] [--category <cat>] [--severity <sev>] [--context <ctx>]"
+  echo "  solve   --solution <해결책> [--keyword <검색어>]"
+  echo "  list    [--last <N>] [--status solved|unsolved] [--category <cat>] [--severity CRITICAL|WARNING|INFO]"
+  echo "  search  <keyword>"
+  echo "  count"
+  echo "  promote [<threshold=3>] [--auto]"
+  echo "           --auto: CHECKLIST.md 자동 업데이트"
+  echo "Categories: safety|control|hardware|software|protocol|process|experiment"
+  echo "Severities: INFO|WARNING|CRITICAL"
+  [[ "$CMD" != "help" && "$CMD" != "--help" ]] && exit 1
+fi

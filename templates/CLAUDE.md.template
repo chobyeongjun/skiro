@@ -1,0 +1,20 @@
+# skiro Harness
+
+## Hook 응답 프로토콜
+
+`[skiro/ref]` 수신 시:
+1. 파일 INDEX 읽기 (`Read offset=0, limit=50`)
+2. INDEX의 Line = 실제 라인 번호
+3. 해당 섹션만 부분 로드 (`Read offset=<line>, limit=30`)
+**절대 reference 전체를 로드하지 않음.**
+
+`[skiro/hw]` 수신 시: hardware.yaml 읽고 토크 제한/통신/클럭/센서 사양 적용.
+`[skiro/arch]` 수신 시: `skiro_map_codebase` 호출.
+`[skiro/onboard]` 수신 시: `skiro_map_codebase` 호출 + 힌트의 git 안내 전달.
+`[skiro/learn]` 수신 시: 과거 에러 기록. 같은 실수 반복하지 않도록 코드 작성 시 반드시 참고.
+`[skiro/blast]` 수신 시: 영향 범위 사용자에게 알림.
+
+## Artifact 규칙
+
+파일을 생성/저장할 때마다 **반드시** `skiro_save_artifact` 호출.
+사용자가 파일 이동/복사를 요청하면: 실제 이동 후 `skiro_save_artifact`로 새 경로 등록.

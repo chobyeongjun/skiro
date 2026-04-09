@@ -1,0 +1,22 @@
+[
+  {"query": "SD 카드에서 실험 데이터 다운받아줘", "should_trigger": true},
+  {"query": "시리얼 포트로 데이터 캡처해줘", "should_trigger": true},
+  {"query": "CSV 파일에 NaN이 있는지 검증해줘", "should_trigger": true},
+  {"query": "ROS bag을 CSV로 변환해줘", "should_trigger": true},
+  {"query": "데이터 timestamp가 연속적인지 확인해줘", "should_trigger": true},
+  {"query": "실험 데이터 백업하고 정리해줘", "should_trigger": true},
+  {"query": "sample rate가 맞는지 검증해줘", "should_trigger": true},
+  {"query": "HDF5 파일에서 특정 채널 추출해줘", "should_trigger": true},
+  {"query": "로깅 코드 추가해줘, 센서값 CSV로 저장", "should_trigger": true},
+  {"query": "데이터 파일 구조 정리해줘, 날짜별로", "should_trigger": true},
+  {"query": "데이터 RMSE 분석해줘", "should_trigger": false},
+  {"query": "보행 분석 GCP 구해줘", "should_trigger": false},
+  {"query": "모터 안전 검증해줘", "should_trigger": false},
+  {"query": "하드웨어 테스트해줘", "should_trigger": false},
+  {"query": "GUI 만들어줘", "should_trigger": false},
+  {"query": "펌웨어 업로드해줘", "should_trigger": false},
+  {"query": "실험 프로토콜 설계해줘", "should_trigger": false},
+  {"query": "pandas로 주식 데이터 정리해줘", "should_trigger": false},
+  {"query": "matplotlib 그래프 그려줘", "should_trigger": false},
+  {"query": "실험 retrospective 작성해줘", "should_trigger": false}
+]

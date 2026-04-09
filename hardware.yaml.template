@@ -1,0 +1,92 @@
+# Skiro Hardware Configuration Template
+# ─────────────────────────────────────
+# DO NOT fill this file manually!
+# Run /skiro-hwtest → it will search datasheets online
+# and auto-generate hardware.yaml for your project.
+#
+# Or copy this to hardware.yaml and fill manually if preferred.
+
+project: ""         # Project name (e.g., "H-Walker", "Quadrotor", "6-DOF Arm")
+
+# ── Motors / Actuators ──────────────────────────────────────────
+motors: []
+#  - name: ""              # Exact model (e.g., AK60-6, Dynamixel XM430-W350, Maxon EC-i 40)
+#    interface: ""          # CAN / RS485 / Serial / PWM / EtherCAT / I2C
+#    max_torque: 0          # Nm (continuous, from datasheet)
+#    peak_torque: 0         # Nm (peak/stall, from datasheet)
+#    max_velocity: 0        # rad/s (no-load)
+#    gear_ratio: 0          # e.g., 6.0 for AK60-6
+#    rated_voltage: 0       # V
+#    rated_current: 0       # A (continuous)
+#    encoder_resolution: 0  # counts per revolution
+#    can_id: 0              # CAN bus ID (if applicable)
+#    quantity: 1            # Number of this motor in the system
+#    datasheet: ""          # URL to official datasheet
+
+# ── Sensors ─────────────────────────────────────────────────────
+sensors: []
+#  - name: ""              # Exact model (e.g., MPU-6050, BNO055, LSB205, AMT102)
+#    type: ""              # imu / loadcell / encoder / lidar / force_torque / pressure / temperature
+#    interface: ""          # I2C / SPI / ADC / Serial / USB / Analog
+#    sample_rate: 0         # Hz (max or configured)
+#    range: ""              # Measurement range (e.g., "±16g", "0-500N", "±2000°/s")
+#    resolution: ""         # Measurement resolution (e.g., "16-bit", "0.01N")
+#    address: ""            # I2C address (e.g., "0x28"), SPI CS pin, or Serial port
+#    quantity: 1
+#    datasheet: ""
+
+# ── Cameras ─────────────────────────────────────────────────────
+cameras: []
+#  - name: ""              # Exact model (e.g., ZED X Mini, RealSense D435i, OAK-D Lite)
+#    interface: ""          # USB3 / GMSL2 / CSI / GigE / MIPI
+#    resolution: ""         # e.g., "1920x1080", "640x480"
+#    fps: 0                 # Max frame rate at above resolution
+#    depth: false           # true if stereo/depth capable
+#    compute: ""            # Companion compute (e.g., "Jetson Orin NX", "Raspberry Pi 5")
+#    quantity: 1
+#    datasheet: ""
+
+# ── MCU / Compute ───────────────────────────────────────────────
+mcu:
+  name: ""                  # Exact model (e.g., Teensy 4.1, STM32H743, ESP32-S3, Arduino Mega)
+  framework: ""             # arduino / stm32hal / esp-idf / micropython / zephyr / freertos
+  build_tool: ""            # arduino-cli / platformio / cmake / idf.py / make
+  upload_command: ""        # Full build+upload command (use {port} placeholder for serial port)
+  clock_mhz: 0             # CPU clock frequency
+  ram_kb: 0                 # SRAM size in KB
+  flash_kb: 0              # Flash size in KB
+
+# ── Communication ───────────────────────────────────────────────
+communication:
+  serial_baud: 0            # Primary serial baud rate
+  can_baud: 0              # CAN bus baud rate (if applicable)
+  wireless: ""              # BLE / WiFi / LoRa / ZigBee / none
+  ros_version: ""           # ros1 / ros2 / none
+
+# ── Safety Limits ───────────────────────────────────────────────
+safety:
+  max_force: 0              # N (software force limit)
+  max_torque: 0             # Nm (software torque limit)
+  max_velocity: 0           # rad/s or m/s (software velocity limit)
+  watchdog_timeout: 100     # ms (communication timeout → auto-stop)
+  control_loop_hz: 0        # Hz (main control loop frequency)
+  e_stop_type: ""           # hardware / software / both
+
+# ── Domain-Specific (optional) ──────────────────────────────────
+# Add domain-specific sections as needed. Examples:
+#
+# gait:                     # For walking robots / exoskeletons
+#   ho_angle_thresh: 0      # deg
+#   hs_ratio: 0             # fraction
+#   min_step_time: 0        # s
+#   max_step_time: 0        # s
+#
+# flight:                   # For drones / UAVs
+#   max_thrust: 0           # N (per motor)
+#   battery_capacity: 0     # mAh
+#   max_altitude: 0         # m
+#
+# manipulation:             # For robotic arms
+#   workspace_radius: 0     # m
+#   payload_capacity: 0     # kg
+#   dof: 0                  # degrees of freedom

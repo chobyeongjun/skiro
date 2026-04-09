@@ -1,0 +1,22 @@
+[
+  {"query": "모터 토크 제한 코드 확인해줘, 안전한지 검증해", "should_trigger": true},
+  {"query": "e-stop 로직이 제대로 동작하는지 봐줘", "should_trigger": true},
+  {"query": "watchdog timer가 제대로 설정되어 있는지 확인해줘", "should_trigger": true},
+  {"query": "force limit이 50N으로 설정되어 있는지 검증해줘", "should_trigger": true},
+  {"query": "state machine에서 비정상 전환이 없는지 확인해줘", "should_trigger": true},
+  {"query": "CAN 통신 타임아웃 처리가 안전한지 봐줘", "should_trigger": true},
+  {"query": "actuator limit이 하드웨어 스펙 범위 안에 있는지 확인", "should_trigger": true},
+  {"query": "비상 정지 시 모터가 즉시 꺼지는지 검증해줘", "should_trigger": true},
+  {"query": "제어 루프 주기가 안전 기준 안에 있는지 확인해줘", "should_trigger": true},
+  {"query": "실험 전에 코드 안전성 점검해줘", "should_trigger": true},
+  {"query": "모터 PID 게인 튜닝해줘", "should_trigger": false},
+  {"query": "CSV 데이터에서 RMSE 구해줘", "should_trigger": false},
+  {"query": "GUI에 비상 정지 버튼 추가해줘", "should_trigger": false},
+  {"query": "보행 분석에서 stride time 구해줘", "should_trigger": false},
+  {"query": "펌웨어 보드에 업로드해줘", "should_trigger": false},
+  {"query": "실험 프로토콜 작성해줘", "should_trigger": false},
+  {"query": "SD 카드 데이터 다운로드해줘", "should_trigger": false},
+  {"query": "hardware.yaml 자동 생성해줘", "should_trigger": false},
+  {"query": "실험 retrospective 작성해줘", "should_trigger": false},
+  {"query": "matplotlib으로 force-displacement 그래프 그려줘", "should_trigger": false}
+]

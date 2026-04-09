@@ -1,0 +1,22 @@
+[
+  {"query": "보행 실험 프로토콜 설계해줘. 5명 피험자, 3가지 조건", "should_trigger": true},
+  {"query": "실험 계획서 작성해줘. 독립변수 종속변수 정리 필요해", "should_trigger": true},
+  {"query": "test plan 만들어줘. 임피던스 제어 비교 실험이야", "should_trigger": true},
+  {"query": "실험 설계 도와줘. 몇 명이 필요한지 통계적 파워 계산도 해줘", "should_trigger": true},
+  {"query": "data collection plan 세워줘. 어떤 센서에서 뭘 수집할지 정리", "should_trigger": true},
+  {"query": "실험 프로토콜 짜줘. 트레드밀 vs 지상보행 비교야", "should_trigger": true},
+  {"query": "experiment design 해줘. 조건 간 순서 효과 어떻게 통제하지?", "should_trigger": true},
+  {"query": "IRB 제출용 실험 절차서 초안 작성해줘", "should_trigger": true},
+  {"query": "within-subject 디자인으로 실험 설계해줘. counterbalancing 포함", "should_trigger": true},
+  {"query": "실험 조건별 샘플 사이즈 계산해줘. effect size 0.5 기준", "should_trigger": true},
+  {"query": "실험 끝났어. 결과 분석해줘", "should_trigger": false},
+  {"query": "safety check 해줘", "should_trigger": false},
+  {"query": "데이터 다운로드해줘", "should_trigger": false},
+  {"query": "펌웨어 올려줘", "should_trigger": false},
+  {"query": "GUI 만들어줘", "should_trigger": false},
+  {"query": "retrospective 해줘. 뭐가 잘못됐는지 정리", "should_trigger": false},
+  {"query": "RMSE 계산해줘", "should_trigger": false},
+  {"query": "gait cycle percentage 분석해줘", "should_trigger": false},
+  {"query": "하드웨어 테스트 돌려줘", "should_trigger": false},
+  {"query": "matplotlib으로 그래프 그려줘", "should_trigger": false}
+]

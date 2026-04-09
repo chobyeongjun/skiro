@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+SKIRO_HOME="${SKIRO_HOME:-$HOME/.skiro}"
+CMD="${1:-help}"
+shift || true
+
+case "$CMD" in
+  save)
+    PROJECT="${1:-unknown}"; SUMMARY="${2:-}"
+    DIR="$SKIRO_HOME/sessions/$PROJECT"; mkdir -p "$DIR"
+    TS=$(date +%Y%m%d-%H%M%S); FILE="$DIR/$TS.md"
+    echo "$SUMMARY" > "$FILE"; cp "$FILE" "$DIR/latest.md"
+    echo "Session saved: $FILE"
+    ;;
+  load)
+    PROJECT="${1:-unknown}"
+    F="$SKIRO_HOME/sessions/$PROJECT/latest.md"
+    [ -f "$F" ] && cat "$F" || echo "NO_SESSION"
+    ;;
+  list)
+    PROJECT="${1:-unknown}"
+    ls -t "$SKIRO_HOME/sessions/$PROJECT"/*.md 2>/dev/null | head -5 || echo "NO_SESSIONS"
+    ;;
+  *) echo "skiro-session: save <project> <summary> | load <project> | list <project>" ;;
+esac

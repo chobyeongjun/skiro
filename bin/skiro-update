@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# skiro-update: pull latest + sync flat copies
+set -euo pipefail
+
+SKIRO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+SKILLS_DIR="$HOME/.claude/skills"
+
+echo "=== Skiro Update ==="
+
+# 1. Git pull
+cd "$SKIRO_DIR"
+echo "[1/2] git pull..."
+git pull --ff-only 2>/dev/null && echo "      Updated." || echo "      Already up to date."
+
+# 2. Sync flat copies
+echo "[2/2] Syncing flat copies..."
+for skill in safety hwtest flash plan retro gui data analyze gait comm mocap; do
+  SRC="$SKIRO_DIR/skiro-$skill/SKILL.md"
+  DST="$SKILLS_DIR/skiro-$skill/SKILL.md"
+  if [ -f "$SRC" ]; then
+    mkdir -p "$SKILLS_DIR/skiro-$skill"
+    cp "$SRC" "$DST"
+    echo "      skiro-$skill ✓"
+  fi
+done
+
+echo ""
+echo "Done. $(cd "$SKIRO_DIR" && git log --oneline -1)"
