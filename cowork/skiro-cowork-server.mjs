@@ -7,13 +7,14 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { execSync } from "child_process";
-import { existsSync, readFileSync, readdirSync, statSync } from "fs";
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync, mkdirSync } from "fs";
 import { join, basename, extname } from "path";
 import { homedir } from "os";
 
 const GLOBAL_SKIRO = join(homedir(), ".skiro");
 const ARTIFACTS_FILE = join(GLOBAL_SKIRO, "artifacts.jsonl");
 const LEARNINGS_FILE = process.env.SKIRO_LEARNINGS || join(GLOBAL_SKIRO, "learnings.jsonl");
+const PAPER_STATE_DIR = join(GLOBAL_SKIRO, "papers");
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -126,6 +127,32 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           max_lines: { type: "number", description: "Max lines to return (default 200, max 1000)" }
         },
         required: ["path"]
+      }
+    },
+    {
+      name: "cowork_scan_experiments",
+      description: "Scan experiments/ and meetings/ directories to build a complete inventory. Returns each experiment's meta, status, available files, and figures. Use as the first step for paper writing — gives Claude the full picture of what research data exists.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          project_path: { type: "string", description: "Root path of the research project" },
+          experiments_dir: { type: "string", description: "Experiments subdirectory name (default: experiments)" },
+          meetings_dir: { type: "string", description: "Meetings subdirectory name (default: meetings)" }
+        },
+        required: ["project_path"]
+      }
+    },
+    {
+      name: "cowork_paper_state",
+      description: "Read or write persistent paper design state. Tracks: title, contributions, section structure, key figures, completion %, gaps. Survives across sessions so paper design evolves incrementally.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          paper_id:   { type: "string", description: "Unique paper identifier (e.g. 'walking-robot-2026')" },
+          action:     { type: "string", enum: ["get","set"], description: "get: read current state, set: save updated state" },
+          state:      { type: "object", description: "Paper state to save (only for action=set). Should include: title, contributions, sections, key_figures, completion_pct, gaps" }
+        },
+        required: ["paper_id", "action"]
       }
     }
   ]
@@ -456,6 +483,163 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     } catch (e) {
       return { content: [{ type: "text", text: `Error reading ${filePath}: ${e.message}` }] };
     }
+  }
+
+  // ── Scan Experiments ────────────────────────────────────────────
+  if (name === "cowork_scan_experiments") {
+    const root = args.project_path;
+    const expDir = join(root, args.experiments_dir || "experiments");
+    const mtgDir = join(root, args.meetings_dir || "meetings");
+
+    const scanDir = (dirPath, type) => {
+      if (!existsSync(dirPath)) return [];
+      const items = [];
+      try {
+        for (const entry of readdirSync(dirPath)) {
+          const entryPath = join(dirPath, entry);
+          try { if (!statSync(entryPath).isDirectory()) continue; } catch { continue; }
+
+          const item = { name: entry, path: entryPath, type };
+
+          // Read meta.json if exists
+          const metaPath = join(entryPath, "meta.json");
+          if (existsSync(metaPath)) {
+            try { item.meta = JSON.parse(readFileSync(metaPath, "utf8")); } catch { item.meta = null; }
+          }
+
+          // Check for key files
+          item.has_summary = existsSync(join(entryPath, "summary.md"));
+          item.has_feedback = existsSync(join(entryPath, "feedback.md"));
+          item.has_results = existsSync(join(entryPath, "results")) && statSync(join(entryPath, "results")).isDirectory();
+
+          // List figures and data files
+          const figExts = new Set([".png",".jpg",".jpeg",".svg",".pdf"]);
+          const dataExts = new Set([".csv",".json",".jsonl",".txt",".log",".yaml",".yml"]);
+          item.figures = [];
+          item.data_files = [];
+
+          const listFiles = (dir) => {
+            if (!existsSync(dir)) return;
+            try {
+              for (const f of readdirSync(dir)) {
+                const ext = extname(f).toLowerCase();
+                if (figExts.has(ext)) item.figures.push(join(dir, f));
+                else if (dataExts.has(ext)) item.data_files.push(join(dir, f));
+              }
+            } catch {}
+          };
+
+          listFiles(entryPath);
+          listFiles(join(entryPath, "results"));
+          listFiles(join(entryPath, "figures"));
+          listFiles(join(entryPath, "data"));
+
+          items.push(item);
+        }
+      } catch {}
+      return items;
+    };
+
+    const experiments = scanDir(expDir, "experiment");
+    const meetings = scanDir(mtgDir, "meeting");
+
+    if (!experiments.length && !meetings.length) {
+      return { content: [{ type: "text", text: `No experiments or meetings found.\nSearched: ${expDir}, ${mtgDir}` }] };
+    }
+
+    const lines = [];
+    lines.push(`## Research Inventory\n`);
+
+    if (experiments.length) {
+      lines.push(`### Experiments (${experiments.length})\n`);
+      for (const e of experiments) {
+        const status = e.meta?.status || "unknown";
+        const date = e.meta?.date || "-";
+        lines.push(`**${e.name}** (${status}, ${date})`);
+        if (e.meta?.description) lines.push(`  ${e.meta.description}`);
+        const flags = [];
+        if (e.has_summary) flags.push("summary");
+        if (e.has_feedback) flags.push("feedback");
+        if (e.has_results) flags.push("results/");
+        lines.push(`  files: [${flags.join(", ")}] | figures: ${e.figures.length} | data: ${e.data_files.length}`);
+        lines.push(`  → \`${e.path}\`\n`);
+      }
+    }
+
+    if (meetings.length) {
+      lines.push(`### Meetings (${meetings.length})\n`);
+      for (const m of meetings) {
+        const date = m.meta?.date || "-";
+        lines.push(`**${m.name}** (${date})`);
+        if (m.has_feedback) lines.push(`  has feedback`);
+        lines.push(`  → \`${m.path}\`\n`);
+      }
+    }
+
+    return { content: [{ type: "text", text: lines.join("\n") }] };
+  }
+
+  // ── Paper State ───────────────────────────────────────────────
+  if (name === "cowork_paper_state") {
+    const paperId = args.paper_id.replace(/[^a-zA-Z0-9_-]/g, "_");
+    if (!existsSync(PAPER_STATE_DIR)) mkdirSync(PAPER_STATE_DIR, { recursive: true });
+    const stateFile = join(PAPER_STATE_DIR, `${paperId}.json`);
+
+    if (args.action === "get") {
+      if (!existsSync(stateFile)) {
+        return { content: [{ type: "text", text: `No paper state found for "${args.paper_id}". Use action="set" to create initial state.` }] };
+      }
+      try {
+        const state = JSON.parse(readFileSync(stateFile, "utf8"));
+        const lines = [];
+        lines.push(`## Paper: ${state.title || paperId}\n`);
+        if (state.completion_pct != null) lines.push(`**Completion: ${state.completion_pct}%**\n`);
+        if (state.contributions?.length) {
+          lines.push(`### Contributions`);
+          state.contributions.forEach(c => lines.push(`- ${c}`));
+          lines.push("");
+        }
+        if (state.sections?.length) {
+          lines.push(`### Sections`);
+          lines.push("| Section | Status | Key Experiments |");
+          lines.push("|---------|--------|-----------------|");
+          state.sections.forEach(s => {
+            lines.push(`| ${s.name} | ${s.status || "-"} | ${(s.key_experiments || []).join(", ") || "-"} |`);
+          });
+          lines.push("");
+        }
+        if (state.key_figures?.length) {
+          lines.push(`### Key Figures`);
+          state.key_figures.forEach(f => lines.push(`- ${f}`));
+          lines.push("");
+        }
+        if (state.gaps?.length) {
+          lines.push(`### Gaps`);
+          state.gaps.forEach(g => lines.push(`- [${g.priority || "?"}] ${g.description} *(${g.type || "?"})*`));
+          lines.push("");
+        }
+        if (state.updated) lines.push(`*Last updated: ${state.updated}*`);
+        lines.push(`\n---\nRaw state:\n\`\`\`json\n${JSON.stringify(state, null, 2)}\n\`\`\``);
+        return { content: [{ type: "text", text: lines.join("\n") }] };
+      } catch (e) {
+        return { content: [{ type: "text", text: `Error reading state: ${e.message}` }] };
+      }
+    }
+
+    if (args.action === "set") {
+      if (!args.state) {
+        return { content: [{ type: "text", text: "Error: state object required for action=set" }] };
+      }
+      try {
+        const state = { ...args.state, updated: new Date().toISOString().slice(0, 10) };
+        writeFileSync(stateFile, JSON.stringify(state, null, 2), "utf8");
+        return { content: [{ type: "text", text: `Paper state saved: ${paperId}\nCompletion: ${state.completion_pct || "?"}%\nSections: ${(state.sections || []).length}\nGaps: ${(state.gaps || []).length}` }] };
+      } catch (e) {
+        return { content: [{ type: "text", text: `Error saving state: ${e.message}` }] };
+      }
+    }
+
+    return { content: [{ type: "text", text: `Unknown action: ${args.action}. Use "get" or "set".` }] };
   }
 
   return { content: [{ type: "text", text: `Unknown tool: ${name}` }] };

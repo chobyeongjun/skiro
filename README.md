@@ -131,6 +131,8 @@ claude mcp add skiro-cowork -s user -- node ~/skiro/cowork/skiro-cowork-server.m
 | `cowork_project_summary` | 미팅/논문용 프로젝트 요약 |
 | `cowork_paper_data` | 논문 섹션별 데이터 추출 |
 | `cowork_read_file` | 파일 실제 내용 읽기 |
+| `cowork_scan_experiments` | 실험/미팅 데이터 전체 스캔 |
+| `cowork_paper_state` | 논문 설계 상태 영구 저장/로드 |
 
 Details: [cowork/README.md](cowork/README.md)
 
