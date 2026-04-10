@@ -155,6 +155,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         },
         required: ["paper_id", "action"]
       }
+    },
+    {
+      name: "cowork_promote_data",
+      description: "Promote experiment files between tiers: raw→ppt or raw→paper or ppt→paper. Use when selecting data for presentation or publication.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          experiment_path: { type: "string", description: "Path to the experiment directory" },
+          files:           { type: "array", items: { type: "string" }, description: "File names to promote (from source tier)" },
+          from_tier:       { type: "string", enum: ["raw","ppt"], description: "Source tier" },
+          to_tier:         { type: "string", enum: ["ppt","paper"], description: "Destination tier" }
+        },
+        required: ["experiment_path", "files", "from_tier", "to_tier"]
+      }
     }
   ]
 }));
@@ -679,6 +693,62 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     }
 
     return { content: [{ type: "text", text: `Unknown action: ${args.action}. Use "get" or "set".` }] };
+  }
+
+  // ── Promote Data ───────────────────────────────────────────────
+  if (name === "cowork_promote_data") {
+    const expPath = args.experiment_path;
+    const fromDir = join(expPath, args.from_tier);
+    const toDir = join(expPath, args.to_tier);
+    const files = args.files || [];
+
+    if (!existsSync(fromDir)) {
+      return { content: [{ type: "text", text: `Source tier not found: ${fromDir}` }] };
+    }
+
+    if (args.from_tier === args.to_tier) {
+      return { content: [{ type: "text", text: "Source and destination tiers must be different." }] };
+    }
+    if (args.from_tier === "paper" || args.to_tier === "raw") {
+      return { content: [{ type: "text", text: "Can only promote forward: raw→ppt, raw→paper, ppt→paper" }] };
+    }
+
+    mkdirSync(toDir, { recursive: true });
+
+    const promoted = [];
+    const skipped = [];
+
+    for (const file of files) {
+      const src = join(fromDir, file);
+      const dest = join(toDir, file);
+      if (!existsSync(src)) {
+        skipped.push(`${file} (not found in ${args.from_tier}/)`);
+        continue;
+      }
+      try {
+        writeFileSync(dest, readFileSync(src));
+        promoted.push(file);
+      } catch (e) {
+        skipped.push(`${file} (${e.message})`);
+      }
+    }
+
+    const lines = [];
+    lines.push(`## ${args.from_tier} → ${args.to_tier}`);
+    lines.push(`Experiment: ${basename(expPath)}\n`);
+    if (promoted.length) {
+      lines.push(`Promoted (${promoted.length}):`);
+      promoted.forEach(f => lines.push(`  + ${f}`));
+    }
+    if (skipped.length) {
+      lines.push(`\nSkipped (${skipped.length}):`);
+      skipped.forEach(f => lines.push(`  - ${f}`));
+    }
+    if (!promoted.length && !skipped.length) {
+      lines.push("No files specified.");
+    }
+
+    return { content: [{ type: "text", text: lines.join("\n") }] };
   }
 
   return { content: [{ type: "text", text: `Unknown tool: ${name}` }] };

@@ -360,6 +360,21 @@ DO NOT call if any CRITICAL issues remain.`,
         },
         required: ["file_analyzed","tier","score"]
       }
+    },
+    {
+      name: "skiro_archive_experiment",
+      description: `Archive experiment data to ~/research/experiments/{name}/raw/. Call when experiment is done — moves or copies raw data files into structured research directory with meta.json.`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          name:        { type: "string", description: "Experiment name (e.g. '2026-04-10-walking-test')" },
+          source_dir:  { type: "string", description: "Directory containing raw experiment data to archive" },
+          description: { type: "string", description: "One-line experiment description" },
+          status:      { type: "string", enum: ["done","partial","failed"], description: "Experiment status (default: done)" },
+          research_root: { type: "string", description: "Research root directory (default: ~/research)" }
+        },
+        required: ["name", "source_dir", "description"]
+      }
     }
   ]
 }));
@@ -709,6 +724,64 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     } catch (e) {
       return { content: [{ type: "text", text: `Failed to create gate: ${e.message}` }] };
     }
+  }
+
+  // ── Archive Experiment ──────────────────────────────────────────
+  if (name === "skiro_archive_experiment") {
+    const researchRoot = args.research_root || join(homedir(), "research");
+    const expDir = join(researchRoot, "experiments", args.name);
+    const rawDir = join(expDir, "raw");
+    const sourceDir = args.source_dir;
+
+    if (!existsSync(sourceDir)) {
+      return { content: [{ type: "text", text: `Source directory not found: ${sourceDir}` }] };
+    }
+
+    // Create structure
+    mkdirSync(rawDir, { recursive: true });
+
+    // Copy files from source to raw/
+    const copied = [];
+    try {
+      const entries = readdirSync(sourceDir);
+      for (const entry of entries) {
+        const srcPath = join(sourceDir, entry);
+        try {
+          const stat = statSync(srcPath);
+          if (stat.isFile()) {
+            const dest = join(rawDir, entry);
+            writeFileSync(dest, readFileSync(srcPath));
+            copied.push(entry);
+          }
+        } catch {}
+      }
+    } catch (e) {
+      return { content: [{ type: "text", text: `Error reading source: ${e.message}` }] };
+    }
+
+    // Create meta.json
+    const meta = {
+      date: args.name.match(/^\d{4}-\d{2}-\d{2}/)?.[0] || new Date().toISOString().slice(0, 10),
+      description: args.description,
+      status: args.status || "done",
+      source: sourceDir,
+      archived: new Date().toISOString()
+    };
+    writeFileSync(join(expDir, "meta.json"), JSON.stringify(meta, null, 2), "utf8");
+
+    // Register as artifact
+    const entry = {
+      date: meta.date,
+      path: expDir,
+      name: args.name,
+      description: `[experiment] ${args.description}`,
+      category: "data",
+      tags: ["experiment", "raw", args.name],
+      project: basename(sourceDir)
+    };
+    appendFileSync(ARTIFACTS_FILE, JSON.stringify(entry) + "\n");
+
+    return { content: [{ type: "text", text: `Archived to ${expDir}\n  raw/ files: ${copied.length} (${copied.join(", ")})\n  meta.json created\n  artifact registered\n\nNext: ppt/ paper/ 승격은 COWORK에서 진행` }] };
   }
 
   return { content: [{ type: "text", text: `Unknown tool: ${name}` }] };
