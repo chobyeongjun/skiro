@@ -6,19 +6,21 @@
 
 | 작업 유형 | 모델 | 기준 |
 |-----------|------|------|
-| 파일 탐색, 검색, 간단한 조회 | **haiku** | 읽기 전용, 단순 검색 |
-| 단순 수정, 변수명 변경, 포맷팅 | **sonnet** | 1~2파일, 로직 변경 없음 |
-| 코딩, 버그 수정, 리팩토링, 분석 | **opus** | 로직 변경 포함되면 무조건 opus |
+| 파일 탐색, 검색, 조회 | **haiku** | 읽기 전용 |
+| 단순 코딩, 단일 파일 수정, 포맷팅 | **sonnet** | 로직 단순, 파일 1~2개 |
+| 복잡한 코딩, 다중 파일, 설계, 분석 | **opus** | 연쇄 변경, 아키텍처, 디버깅 |
 
 서브에이전트 모델 지정 예시:
 ```
-Agent({ model: "opus", prompt: "..." })   // 코딩, 분석, 설계
-Agent({ model: "haiku", prompt: "..." })   // 파일 찾기, 목록 조회
+Agent({ model: "opus", prompt: "..." })   // 복잡한 코딩, 설계, 분석
+Agent({ model: "sonnet", prompt: "..." }) // 단순 코딩, 단일 파일
+Agent({ model: "haiku", prompt: "..." })  // 파일 찾기, 목록 조회
 ```
 
 skiro_analyze_complexity 결과와 연동:
-- score < 3 → haiku (조회) 또는 sonnet (단순 수정)
-- score >= 3 → opus
+- score < 3 → haiku (조회) 또는 sonnet (단순 코딩)
+- score 3-6 → sonnet (일반 코딩)
+- score > 6 → opus (복잡한 작업)
 
 ## Hook 응답 프로토콜
 
