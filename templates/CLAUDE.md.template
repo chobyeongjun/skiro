@@ -1,5 +1,26 @@
 # skiro Harness
 
+## 모델 라우팅
+
+기본 세션은 **Sonnet**으로 운영. 서브에이전트 위임 시 작업 복잡도에 따라 모델 선택:
+
+| 작업 유형 | 모델 | 기준 |
+|-----------|------|------|
+| 파일 탐색, 검색, 단순 수정 | **haiku** | 3줄 이하 변경, 단일 파일 |
+| 일반 코딩, 버그 수정, 리팩토링 | **sonnet** | 기본값 |
+| 아키텍처 설계, 논문 구조, 복잡한 분석 | **opus** | 다중 파일 연쇄 변경, 설계 결정 |
+
+서브에이전트 모델 지정 예시:
+```
+Agent({ model: "opus", prompt: "..." })   // 설계 결정
+Agent({ model: "haiku", prompt: "..." })   // 단순 검색
+```
+
+skiro_analyze_complexity 결과와 연동:
+- score < 5 → haiku 또는 sonnet
+- score 5-8 → sonnet
+- score > 8 → opus
+
 ## Hook 응답 프로토콜
 
 `[skiro/ref]` 수신 시:
@@ -18,3 +39,8 @@
 
 파일을 생성/저장할 때마다 **반드시** `skiro_save_artifact` 호출.
 사용자가 파일 이동/복사를 요청하면: 실제 이동 후 `skiro_save_artifact`로 새 경로 등록.
+
+## 실험 아카이브
+
+실험이 끝나면 **반드시** `skiro_archive_experiment` 호출하여 raw 데이터 보존.
+사용자가 "실험 끝" / "데이터 저장" / "아카이브" 등을 언급하면 자동 실행.
