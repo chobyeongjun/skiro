@@ -131,13 +131,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "cowork_scan_experiments",
-      description: "Scan experiments/ and meetings/ directories to build a complete inventory. Returns each experiment's meta, status, available files, and figures. Use as the first step for paper writing — gives Claude the full picture of what research data exists.",
+      description: "Scan experiments/ and meetings/ directories to build a complete inventory. Returns each experiment's meta, status, available files, and figures. Data tiers: raw (all captured), ppt (presentation-ready), paper (publication-quality). Use as the first step for paper writing.",
       inputSchema: {
         type: "object",
         properties: {
           project_path: { type: "string", description: "Root path of the research project" },
           experiments_dir: { type: "string", description: "Experiments subdirectory name (default: experiments)" },
-          meetings_dir: { type: "string", description: "Meetings subdirectory name (default: meetings)" }
+          meetings_dir: { type: "string", description: "Meetings subdirectory name (default: meetings)" },
+          tier: { type: "string", enum: ["raw","ppt","paper","all"], description: "Filter by data tier (default: all)" }
         },
         required: ["project_path"]
       }
@@ -490,6 +491,23 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const root = args.project_path;
     const expDir = join(root, args.experiments_dir || "experiments");
     const mtgDir = join(root, args.meetings_dir || "meetings");
+    const tierFilter = args.tier || "all";
+
+    const figExts = new Set([".png",".jpg",".jpeg",".svg",".pdf"]);
+    const dataExts = new Set([".csv",".json",".jsonl",".txt",".log",".yaml",".yml"]);
+
+    const countFiles = (dir) => {
+      if (!existsSync(dir)) return { figures: 0, data: 0, files: [] };
+      const result = { figures: 0, data: 0, files: [] };
+      try {
+        for (const f of readdirSync(dir)) {
+          const ext = extname(f).toLowerCase();
+          if (figExts.has(ext)) { result.figures++; result.files.push(join(dir, f)); }
+          else if (dataExts.has(ext)) { result.data++; result.files.push(join(dir, f)); }
+        }
+      } catch {}
+      return result;
+    };
 
     const scanDir = (dirPath, type) => {
       if (!existsSync(dirPath)) return [];
@@ -501,38 +519,34 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 
           const item = { name: entry, path: entryPath, type };
 
-          // Read meta.json if exists
+          // Read meta.json
           const metaPath = join(entryPath, "meta.json");
           if (existsSync(metaPath)) {
             try { item.meta = JSON.parse(readFileSync(metaPath, "utf8")); } catch { item.meta = null; }
           }
 
-          // Check for key files
+          // Key files
           item.has_summary = existsSync(join(entryPath, "summary.md"));
           item.has_feedback = existsSync(join(entryPath, "feedback.md"));
-          item.has_results = existsSync(join(entryPath, "results")) && statSync(join(entryPath, "results")).isDirectory();
 
-          // List figures and data files
-          const figExts = new Set([".png",".jpg",".jpeg",".svg",".pdf"]);
-          const dataExts = new Set([".csv",".json",".jsonl",".txt",".log",".yaml",".yml"]);
-          item.figures = [];
-          item.data_files = [];
+          // 3-tier data: raw → ppt → paper
+          item.tiers = {};
+          for (const tier of ["raw", "ppt", "paper"]) {
+            const tierPath = join(entryPath, tier);
+            if (existsSync(tierPath) && statSync(tierPath).isDirectory()) {
+              item.tiers[tier] = countFiles(tierPath);
+            }
+          }
 
-          const listFiles = (dir) => {
-            if (!existsSync(dir)) return;
-            try {
-              for (const f of readdirSync(dir)) {
-                const ext = extname(f).toLowerCase();
-                if (figExts.has(ext)) item.figures.push(join(dir, f));
-                else if (dataExts.has(ext)) item.data_files.push(join(dir, f));
-              }
-            } catch {}
+          // Also check legacy dirs (results/, figures/, data/)
+          const legacyFigures = countFiles(join(entryPath, "figures"));
+          const legacyResults = countFiles(join(entryPath, "results"));
+          const legacyData = countFiles(join(entryPath, "data"));
+          const rootFiles = countFiles(entryPath);
+          item.other_files = {
+            figures: legacyFigures.figures + legacyResults.figures + rootFiles.figures,
+            data: legacyData.data + legacyResults.data + rootFiles.data
           };
-
-          listFiles(entryPath);
-          listFiles(join(entryPath, "results"));
-          listFiles(join(entryPath, "figures"));
-          listFiles(join(entryPath, "data"));
 
           items.push(item);
         }
@@ -557,11 +571,36 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         const date = e.meta?.date || "-";
         lines.push(`**${e.name}** (${status}, ${date})`);
         if (e.meta?.description) lines.push(`  ${e.meta.description}`);
-        const flags = [];
-        if (e.has_summary) flags.push("summary");
-        if (e.has_feedback) flags.push("feedback");
-        if (e.has_results) flags.push("results/");
-        lines.push(`  files: [${flags.join(", ")}] | figures: ${e.figures.length} | data: ${e.data_files.length}`);
+
+        // Tier summary
+        const tierNames = Object.keys(e.tiers);
+        if (tierNames.length) {
+          const tierInfo = tierNames.map(t => {
+            const ti = e.tiers[t];
+            return `${t}: ${ti.figures}fig/${ti.data}data`;
+          }).join(" | ");
+          lines.push(`  tiers: [${tierInfo}]`);
+
+          // Show highest tier reached
+          const highest = tierNames.includes("paper") ? "paper" : tierNames.includes("ppt") ? "ppt" : "raw";
+          lines.push(`  highest tier: **${highest}**`);
+
+          // If tier filter applied, show that tier's files
+          if (tierFilter !== "all" && e.tiers[tierFilter]) {
+            const tf = e.tiers[tierFilter];
+            if (tf.files.length) {
+              tf.files.forEach(f => lines.push(`    - ${basename(f)}`));
+            }
+          }
+        } else {
+          // No tier dirs — show legacy
+          const flags = [];
+          if (e.has_summary) flags.push("summary");
+          if (e.has_feedback) flags.push("feedback");
+          lines.push(`  files: [${flags.join(", ")}] | figures: ${e.other_files.figures} | data: ${e.other_files.data}`);
+          lines.push(`  tiers: none (raw/, ppt/, paper/ 폴더 없음)`);
+        }
+
         lines.push(`  → \`${e.path}\`\n`);
       }
     }
