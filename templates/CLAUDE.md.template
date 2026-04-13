@@ -36,6 +36,15 @@ skiro_analyze_complexity 결과와 연동:
 `[skiro/learn]` 수신 시: 과거 에러 기록. 같은 실수 반복하지 않도록 코드 작성 시 반드시 참고.
 `[skiro/blast]` 수신 시: 영향 범위 사용자에게 알림.
 
+## Vault (Obsidian) 연동
+
+코드 작업 중 관련 지식이 필요할 때 자동으로 vault 참조:
+- 하드웨어 관련 코드 수정 → `skiro_vault_search(tags: ["motor","sensor","can-bus"])` 등으로 spec 확인
+- 설계 결정이 필요한 상황 → `skiro_vault_search(folder: "10_Wiki/Decisions")` 로 과거 결정 참조
+- 프로젝트 컨텍스트 필요 시 → `skiro_vault_search(query: "<프로젝트명>")` 로 관련 노트 검색
+- vault_search 결과에서 필요한 노트만 `skiro_vault_read`로 부분 로드 (전체 로드 금지)
+- 실험 기록, 트러블슈팅, 설계 결정은 `skiro_vault_write`로 vault에 기록
+
 ## Artifact 규칙
 
 파일을 생성/저장할 때마다 **반드시** `skiro_save_artifact` 호출.

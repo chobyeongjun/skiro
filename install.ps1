@@ -1,9 +1,10 @@
 # skiro install v4.0 (Windows PowerShell)
-# Usage: powershell -ExecutionPolicy Bypass -File install.ps1 [-Project "C:\path\to\project"]
-# Installs skiro harness: hooks + MCP + PATH
+# Usage: powershell -ExecutionPolicy Bypass -File install.ps1 [-Project "C:\path\to\project"] [-Vault "C:\path\to\vault"]
+# Installs skiro harness: hooks + MCP + PATH + Vault config
 
 param(
-    [string]$Project = ""
+    [string]$Project = "",
+    [string]$Vault = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -26,12 +27,39 @@ $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
 if ($UserPath -notlike "*$BinPath*") {
     [Environment]::SetEnvironmentVariable("Path", "$BinPath;$UserPath", "User")
     [Environment]::SetEnvironmentVariable("SKIRO_BIN", $BinPath, "User")
-    Write-Host "[2/5] PATH registered (restart terminal to activate)" -ForegroundColor Green
+    Write-Host "[2/6] PATH registered (restart terminal to activate)" -ForegroundColor Green
 } else {
-    Write-Host "[2/5] PATH already registered" -ForegroundColor Green
+    Write-Host "[2/6] PATH already registered" -ForegroundColor Green
 }
 
-# 3. settings.json hooks configuration
+# 3. Vault config (optional)
+$SkiroConfigDir = Join-Path $env:USERPROFILE ".skiro"
+$SkiroConfig = Join-Path $SkiroConfigDir "config.json"
+if (-not (Test-Path $SkiroConfigDir)) {
+    New-Item -ItemType Directory -Force -Path $SkiroConfigDir | Out-Null
+}
+if ($Vault -ne "") {
+    if (Test-Path $Vault) {
+        $VaultAbs = (Resolve-Path $Vault).Path
+        $config = @{}
+        if (Test-Path $SkiroConfig) {
+            try { $config = Get-Content $SkiroConfig -Raw | ConvertFrom-Json -AsHashtable } catch { $config = @{} }
+        }
+        $config["vault_path"] = $VaultAbs
+        $config | ConvertTo-Json | Set-Content $SkiroConfig -Encoding UTF8
+        Write-Host "[3/6] vault configured -> $VaultAbs" -ForegroundColor Green
+    } else {
+        Write-Host "[3/6] WARNING: vault dir not found: $Vault (skipped)" -ForegroundColor Yellow
+    }
+} else {
+    if (Test-Path $SkiroConfig) {
+        Write-Host "[3/6] vault config unchanged (existing)" -ForegroundColor Green
+    } else {
+        Write-Host "[3/6] No -Vault specified (skipped)" -ForegroundColor Green
+    }
+}
+
+# 4. settings.json hooks configuration
 $SettingsDir = Split-Path -Parent $Settings
 if (-not (Test-Path $SettingsDir)) {
     New-Item -ItemType Directory -Force -Path $SettingsDir | Out-Null
@@ -107,20 +135,20 @@ if (Test-Path $Settings) {
     }
     $existing | Add-Member -NotePropertyName "hooks" -NotePropertyValue $existingHooks -Force
     $existing | ConvertTo-Json -Depth 10 | Set-Content $Settings -Encoding UTF8
-    Write-Host "[3/5] hooks merged into settings.json (preserved existing hooks)" -ForegroundColor Green
+    Write-Host "[4/6] hooks merged into settings.json (preserved existing hooks)" -ForegroundColor Green
 } else {
     @{ hooks = $HooksConfig } | ConvertTo-Json -Depth 10 | Set-Content $Settings -Encoding UTF8
-    Write-Host "[3/5] settings.json created with hooks" -ForegroundColor Green
+    Write-Host "[4/6] settings.json created with hooks" -ForegroundColor Green
 }
 
-# 4. MCP registration
-Write-Host "[4/5] Registering MCP server..."
+# 5. MCP registration
+Write-Host "[5/6] Registering MCP server..."
 try { claude mcp remove skiro 2>$null } catch {}
 $McpServer = Join-Path $SkiroDir "bin\skiro-mcp-server.mjs"
 claude mcp add skiro -s user -- node $McpServer
-Write-Host "[4/5] MCP server registered" -ForegroundColor Green
+Write-Host "[5/6] MCP server registered" -ForegroundColor Green
 
-# 5. Project CLAUDE.md setup
+# 6. Project CLAUDE.md setup
 if ($Project -ne "") {
     if (Test-Path $Project) {
         $ClaudeMd = Join-Path $Project "CLAUDE.md"
@@ -130,19 +158,19 @@ if ($Project -ne "") {
             if ($content -notmatch "skiro Harness") {
                 Add-Content $ClaudeMd "`n"
                 Get-Content $Template | Add-Content $ClaudeMd
-                Write-Host "[5/5] skiro section appended to $ClaudeMd" -ForegroundColor Green
+                Write-Host "[6/6] skiro section appended to $ClaudeMd" -ForegroundColor Green
             } else {
-                Write-Host "[5/5] skiro section already in CLAUDE.md (skipped)" -ForegroundColor Green
+                Write-Host "[6/6] skiro section already in CLAUDE.md (skipped)" -ForegroundColor Green
             }
         } else {
             Copy-Item $Template $ClaudeMd
-            Write-Host "[5/5] CLAUDE.md created at $ClaudeMd" -ForegroundColor Green
+            Write-Host "[6/6] CLAUDE.md created at $ClaudeMd" -ForegroundColor Green
         }
     } else {
-        Write-Host "[5/5] WARNING: project dir not found: $Project" -ForegroundColor Yellow
+        Write-Host "[6/6] WARNING: project dir not found: $Project" -ForegroundColor Yellow
     }
 } else {
-    Write-Host "[5/5] No -Project specified (skipped CLAUDE.md)"
+    Write-Host "[6/6] No -Project specified (skipped CLAUDE.md)"
     Write-Host "  To add: .\install.ps1 -Project C:\path\to\your\project"
 }
 
@@ -155,3 +183,4 @@ Write-Host "  - 'sh' command must be available in PATH"
 Write-Host ""
 Write-Host "Verify:"
 Write-Host "  claude mcp list | grep skiro"
+Write-Host "  cat ~\.skiro\config.json"

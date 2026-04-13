@@ -32,7 +32,7 @@ Auto-tracks problems, solutions, code complexity, and file artifacts — no manu
 
 ```bash
 git clone https://github.com/chobyeongjun/skiro ~/skiro
-bash ~/skiro/install.sh --project /path/to/your/project
+bash ~/skiro/install.sh --project /path/to/your/project --vault ~/your-vault
 ```
 
 ### Windows (PowerShell)
@@ -41,7 +41,7 @@ bash ~/skiro/install.sh --project /path/to/your/project
 
 ```powershell
 git clone https://github.com/chobyeongjun/skiro $HOME\skiro
-powershell -ExecutionPolicy Bypass -File $HOME\skiro\install.ps1 -Project "C:\path\to\your\project"
+powershell -ExecutionPolicy Bypass -File $HOME\skiro\install.ps1 -Project "C:\path\to\your\project" -Vault "C:\path\to\vault"
 ```
 
 ### Add to another project (install 후)
@@ -62,16 +62,18 @@ bash ~/skiro/install.sh --project ~/another-project
 |------|-------------|---------|
 | 1 | `chmod +x` (permissions) | — (not needed) |
 | 2 | `npm install` | `npm install` |
-| 3 | PATH → `~/.zshrc` or `~/.bashrc` | PATH → User Environment Variable |
-| 4 | hooks → `~/.claude/settings.json` | hooks → `~/.claude/settings.json` (via `sh`) |
-| 5 | `claude mcp add skiro` | `claude mcp add skiro` |
-| 6 | CLAUDE.md → project | CLAUDE.md → project |
+| 3 | vault → `~/.skiro/config.json` | vault → `~/.skiro/config.json` |
+| 4 | PATH → `~/.zshrc` or `~/.bashrc` | PATH → User Environment Variable |
+| 5 | hooks → `~/.claude/settings.json` | hooks → `~/.claude/settings.json` (via `sh`) |
+| 6 | `claude mcp add skiro` | `claude mcp add skiro` |
+| 7 | CLAUDE.md → project | CLAUDE.md → project |
 
 ### Verify
 
 ```bash
 cat ~/.claude/settings.json | grep skiro
 claude mcp list | grep skiro
+cat ~/.skiro/config.json
 ```
 
 ---
@@ -88,7 +90,7 @@ claude mcp list | grep skiro
 | skiro-hook-prompt | User message | Detect problem/solution patterns |
 | skiro-hook-error | Bash output | Auto-record errors from command output |
 
-**MCP Tools** (10 tools, called by Claude automatically):
+**MCP Tools** (13 tools, called by Claude automatically):
 
 | Tool | Purpose |
 |------|---------|
@@ -102,6 +104,9 @@ claude mcp list | grep skiro
 | `skiro_save_artifact` | Register any file Claude creates (auto-called) |
 | `skiro_find_artifact` | Find previously saved files by keyword/category |
 | `skiro_archive_experiment` | Archive experiment data to ~/research/experiments/{name}/raw/ |
+| `skiro_vault_search` | Search Obsidian vault notes by keyword/tags/folder |
+| `skiro_vault_read` | Read vault note content, section filter, wiki-link extraction |
+| `skiro_vault_write` | Create/append notes with frontmatter (experiments, decisions, logs) |
 
 ---
 
@@ -131,6 +136,41 @@ COWORK (claude.ai)                                        ├── ppt/     ←
   cowork_promote_data(raw→ppt)                            └── paper/   ← 논문용 선별
   cowork_promote_data(ppt→paper)
 ```
+
+---
+
+## Obsidian vault integration
+
+Obsidian vault를 지식 베이스로 연동. 코딩 중 하드웨어 스펙, 설계 결정, 실험 기록을 자동 참조.
+
+```
+~/.skiro/config.json    ← vault_path 저장 (install --vault 또는 수동 설정)
+
+~/vault/                ← Obsidian vault (어디든 OK)
+  ├── 00_Raw/           ← 미정리 메모, 미팅 노트
+  ├── 10_Wiki/          ← 정제된 지식
+  │   ├── Topics/       ← 기술 주제 (motor, sensor, protocol)
+  │   ├── Projects/     ← 프로젝트별 노트
+  │   ├── Decisions/    ← 설계 결정 기록
+  │   └── Skills/       ← 개인 기술/방법론
+  ├── 10_Planning/      ← 계획, 로드맵
+  └── 20_Meta/          ← vault 자체 관리
+```
+
+Vault 노트 형식 (YAML frontmatter):
+```yaml
+---
+title: AK60 Motor Specs
+tags: [motor, bldc, can-bus]
+summary: AK60-6 모터의 토크/속도/통신 사양
+confidence_score: 0.9
+---
+```
+
+사용 흐름:
+1. 코드 수정 중 → `skiro_vault_search(tags: ["motor"])` → 관련 노트 발견
+2. 필요한 노트만 → `skiro_vault_read(note: "ak60-motor")` → 스펙 확인
+3. 실험/결정 기록 → `skiro_vault_write(path: "10_Wiki/Decisions/...")` → vault에 저장
 
 ---
 
@@ -198,6 +238,26 @@ claude mcp add skiro-cowork -s user -- node ~/skiro/cowork/skiro-cowork-server.m
 | `cowork_promote_data` | raw→ppt→paper 데이터 승격 |
 
 Details: [cowork/README.md](cowork/README.md)
+
+---
+
+## Backup & portability
+
+다른 컴퓨터로 이전 시:
+
+```bash
+# 1. 백업 (원본 컴퓨터)
+bash ~/skiro/bin/skiro-backup.sh ~/skiro-backup.tar.gz
+
+# 2. 복원 (새 컴퓨터)
+tar xzf skiro-backup.tar.gz -C ~/
+bash ~/skiro/install.sh --vault ~/your-vault
+```
+
+백업에 포함되는 항목:
+- `~/skiro/` — harness 코드
+- `~/.skiro/` — config, learnings, artifacts, paper states
+- `~/.claude/settings.json` — hooks 설정
 
 ---
 

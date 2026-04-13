@@ -15,6 +15,15 @@ const COMPLEXITY = join(SKIRO_BIN, "skiro-complexity");
 const GLOBAL_SKIRO = join(homedir(), ".skiro");
 mkdirSync(GLOBAL_SKIRO, { recursive: true });
 const ARTIFACTS_FILE = join(GLOBAL_SKIRO, "artifacts.jsonl");
+const CONFIG_FILE = join(GLOBAL_SKIRO, "config.json");
+
+function getConfig() {
+  try { return JSON.parse(readFileSync(CONFIG_FILE, "utf8")); } catch { return {}; }
+}
+
+function getVaultPath() {
+  return process.env.SKIRO_VAULT || getConfig().vault_path || null;
+}
 
 function getLearningsFile() {
   // Override via env var for per-project learnings
@@ -374,6 +383,48 @@ DO NOT call if any CRITICAL issues remain.`,
           research_root: { type: "string", description: "Research root directory (default: ~/research)" }
         },
         required: ["name", "source_dir", "description"]
+      }
+    },
+    {
+      name: "skiro_vault_search",
+      description: `Search Obsidian vault notes by keyword, tags, or project name. Returns matching notes with title, tags, summary. Call when you need hardware specs, design decisions, past experiment records, or any domain knowledge while coding.`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          query:   { type: "string", description: "Search keyword (matches title, tags, content, summary)" },
+          tags:    { type: "array", items: { type: "string" }, description: "Filter by frontmatter tags (e.g. ['motor','can-bus'])" },
+          folder:  { type: "string", description: "Limit to vault subfolder (e.g. '10_Wiki/Topics')" },
+          limit:   { type: "number", description: "Max results (default 5)" }
+        }
+      }
+    },
+    {
+      name: "skiro_vault_read",
+      description: `Read a specific Obsidian vault note. Call after vault_search to get full content. Also follows [[wiki-links]] to find connected notes.`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          note:       { type: "string", description: "Note filename (e.g. 'ak60-motor.md' or 'ak60-motor') or path relative to vault" },
+          section:    { type: "string", description: "Read only a specific ## section (e.g. 'Core Content')" },
+          max_lines:  { type: "number", description: "Max lines (default 100)" }
+        },
+        required: ["note"]
+      }
+    },
+    {
+      name: "skiro_vault_write",
+      description: `Create or update a note in the Obsidian vault. Use for: experiment logs, troubleshooting records, design decisions, meeting notes. Follows vault frontmatter format.`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          path:       { type: "string", description: "Path relative to vault root (e.g. '00_Raw/meetings/2026-04-13-lab.md')" },
+          title:      { type: "string", description: "Note title" },
+          tags:       { type: "array", items: { type: "string" }, description: "Frontmatter tags" },
+          summary:    { type: "string", description: "One-line summary" },
+          content:    { type: "string", description: "Markdown body content (without frontmatter)" },
+          append:     { type: "boolean", description: "If true, append to existing note instead of overwrite" }
+        },
+        required: ["path", "title", "content"]
       }
     }
   ]
@@ -788,6 +839,179 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     appendFileSync(ARTIFACTS_FILE, JSON.stringify(entry) + "\n");
 
     return { content: [{ type: "text", text: `Archived to ${expDir}\n  raw/ files: ${copied.length} (${copied.join(", ")})\n  meta.json created\n  artifact registered\n\nNext: ppt/ paper/ 승격은 COWORK에서 진행` }] };
+  }
+
+  // ── Vault Search ────────────────────────────────────────────────
+  if (name === "skiro_vault_search") {
+    const vaultPath = getVaultPath();
+    if (!vaultPath || !existsSync(vaultPath)) {
+      return { content: [{ type: "text", text: `Vault not configured. Run: skiro config --vault /path/to/vault\nOr set SKIRO_VAULT env var.` }] };
+    }
+
+    const query = (args.query || "").toLowerCase();
+    const tagFilter = (args.tags || []).map(t => t.toLowerCase());
+    const folderFilter = args.folder || null;
+    const maxResults = args.limit || 5;
+    const searchRoot = folderFilter ? join(vaultPath, folderFilter) : vaultPath;
+
+    const results = [];
+
+    const walkVault = (dir) => {
+      if (!existsSync(dir)) return;
+      try {
+        for (const entry of readdirSync(dir)) {
+          if (entry.startsWith(".")) continue;
+          const full = join(dir, entry);
+          try {
+            const st = statSync(full);
+            if (st.isDirectory()) { walkVault(full); continue; }
+            if (!entry.endsWith(".md")) continue;
+
+            const raw = readFileSync(full, "utf8");
+            const fmMatch = raw.match(/^---\n([\s\S]*?)\n---/);
+            let title = "", tags = [], summary = "", confidence = 0;
+
+            if (fmMatch) {
+              const fm = fmMatch[1];
+              title = (fm.match(/title:\s*(.+)/)||[])[1] || "";
+              summary = (fm.match(/summary:\s*(.+)/)||[])[1] || "";
+              confidence = parseFloat((fm.match(/confidence_score:\s*([\d.]+)/)||[])[1] || "0");
+              const tagMatch = fm.match(/tags:\s*\[([^\]]*)\]/);
+              if (tagMatch) tags = tagMatch[1].split(",").map(t => t.trim().replace(/['"]/g, ""));
+            }
+
+            // Tag filter
+            if (tagFilter.length && !tagFilter.some(tf => tags.some(t => t.toLowerCase().includes(tf)))) continue;
+
+            // Query filter
+            if (query) {
+              const haystack = `${title} ${tags.join(" ")} ${summary} ${entry}`.toLowerCase();
+              const bodySnippet = raw.slice(0, 2000).toLowerCase();
+              if (!haystack.includes(query) && !bodySnippet.includes(query)) continue;
+            }
+
+            results.push({
+              file: relative(vaultPath, full),
+              title: title || entry.replace(".md", ""),
+              tags,
+              summary: summary.slice(0, 120),
+              confidence
+            });
+          } catch {}
+        }
+      } catch {}
+    };
+
+    walkVault(searchRoot);
+
+    // Sort by confidence then alphabetical
+    results.sort((a, b) => b.confidence - a.confidence || a.title.localeCompare(b.title));
+    const top = results.slice(0, maxResults);
+
+    if (!top.length) {
+      return { content: [{ type: "text", text: `No vault notes found${query ? ` for "${args.query}"` : ""}${tagFilter.length ? ` with tags [${tagFilter.join(",")}]` : ""}.` }] };
+    }
+
+    const out = top.map(r =>
+      `**${r.title}** (${r.confidence})\n  tags: [${r.tags.join(", ")}]\n  ${r.summary}\n  → \`${r.file}\``
+    ).join("\n\n");
+
+    return { content: [{ type: "text", text: `## Vault (${top.length}/${results.length})\n\n${out}` }] };
+  }
+
+  // ── Vault Read ─────────────────────────────────────────────────
+  if (name === "skiro_vault_read") {
+    const vaultPath = getVaultPath();
+    if (!vaultPath || !existsSync(vaultPath)) {
+      return { content: [{ type: "text", text: `Vault not configured.` }] };
+    }
+
+    let note = args.note;
+    if (!note.endsWith(".md")) note += ".md";
+
+    // Try direct path first, then search in common locations
+    let fullPath = null;
+    const candidates = [
+      join(vaultPath, note),
+      join(vaultPath, "10_Wiki/Topics", basename(note)),
+      join(vaultPath, "10_Wiki/Projects", basename(note)),
+      join(vaultPath, "10_Wiki/Decisions", basename(note)),
+      join(vaultPath, "10_Wiki/Skills", basename(note)),
+      join(vaultPath, "00_Raw/meetings", basename(note)),
+      join(vaultPath, "10_Planning", basename(note))
+    ];
+    for (const c of candidates) {
+      if (existsSync(c)) { fullPath = c; break; }
+    }
+
+    if (!fullPath) {
+      return { content: [{ type: "text", text: `Note not found: ${args.note}\nSearched: ${candidates.map(c => relative(vaultPath, c)).join(", ")}` }] };
+    }
+
+    const raw = readFileSync(fullPath, "utf8");
+    const maxLines = args.max_lines || 100;
+
+    // Section filter
+    if (args.section) {
+      const sectionRegex = new RegExp(`^## ${args.section}[\\s\\S]*?(?=\\n## |$)`, "m");
+      const match = raw.match(sectionRegex);
+      if (match) {
+        const lines = match[0].split("\n").slice(0, maxLines);
+        return { content: [{ type: "text", text: `## ${relative(vaultPath, fullPath)} → ${args.section}\n\n${lines.join("\n")}` }] };
+      }
+      return { content: [{ type: "text", text: `Section "${args.section}" not found in ${relative(vaultPath, fullPath)}` }] };
+    }
+
+    // Full note (truncated)
+    const lines = raw.split("\n");
+    const truncated = lines.length > maxLines;
+    const output = lines.slice(0, maxLines).join("\n");
+
+    // Extract [[links]] for context
+    const wikiLinks = [...new Set((raw.match(/\[\[([^\]]+)\]\]/g) || []).map(l => l.slice(2, -2)))];
+
+    let result = `## ${relative(vaultPath, fullPath)} (${lines.length} lines${truncated ? `, showing ${maxLines}` : ""})\n\n${output}`;
+    if (wikiLinks.length) {
+      result += `\n\n---\nLinked notes: ${wikiLinks.map(l => `[[${l}]]`).join(", ")}`;
+    }
+
+    return { content: [{ type: "text", text: result }] };
+  }
+
+  // ── Vault Write ────────────────────────────────────────────────
+  if (name === "skiro_vault_write") {
+    const vaultPath = getVaultPath();
+    if (!vaultPath || !existsSync(vaultPath)) {
+      return { content: [{ type: "text", text: `Vault not configured.` }] };
+    }
+
+    const notePath = join(vaultPath, args.path);
+    const noteDir = dirname(notePath);
+    mkdirSync(noteDir, { recursive: true });
+
+    if (args.append && existsSync(notePath)) {
+      appendFileSync(notePath, `\n${args.content}\n`);
+      return { content: [{ type: "text", text: `Appended to ${args.path}` }] };
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const tags = args.tags || [];
+    const frontmatter = [
+      "---",
+      `title: ${args.title}`,
+      `created: ${today}`,
+      `updated: ${today}`,
+      `sources: []`,
+      `tags: [${tags.join(", ")}]`,
+      `summary: ${args.summary || ""}`,
+      `confidence_score: 0.7`,
+      "---"
+    ].join("\n");
+
+    const fullContent = `${frontmatter}\n\n# [[${args.title}]]\n\n${args.content}\n`;
+    writeFileSync(notePath, fullContent, "utf8");
+
+    return { content: [{ type: "text", text: `Vault note created: ${args.path}\n  title: ${args.title}\n  tags: [${tags.join(", ")}]` }] };
   }
 
   return { content: [{ type: "text", text: `Unknown tool: ${name}` }] };

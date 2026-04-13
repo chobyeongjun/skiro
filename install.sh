@@ -1,24 +1,27 @@
 #!/usr/bin/env bash
-# skiro install v3.0
-# Usage: bash install.sh [--project <path>]
+# skiro install v4.0
+# Usage: bash install.sh [--project <path>] [--vault <path>]
 # Installs skiro harness: hooks + MCP + PATH
 # --project: also copy CLAUDE.md template to target project
+# --vault: set Obsidian vault path for knowledge integration
 
 set -euo pipefail
 
 SKIRO_DIR="$(cd "$(dirname "$0")" && pwd)"
 SETTINGS="$HOME/.claude/settings.json"
 PROJECT_DIR=""
+VAULT_DIR=""
 
 # 인수 파싱
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --project) PROJECT_DIR="$2"; shift 2 ;;
+        --vault)   VAULT_DIR="$2"; shift 2 ;;
         *) shift ;;
     esac
 done
 
-echo "skiro install v3.0"
+echo "skiro install v4.0"
 echo "=================="
 
 # 1. 실행 권한
@@ -30,13 +33,45 @@ chmod +x "$SKIRO_DIR/bin/skiro-complexity" \
          "$SKIRO_DIR/bin/skiro-hook-session" \
          "$SKIRO_DIR/bin/skiro-hook-prompt" \
          "$SKIRO_DIR/bin/skiro-hook-error"
-echo "[1/5] permissions set"
+echo "[1/6] permissions set"
 
 # 2. npm 의존성
 cd "$SKIRO_DIR/bin" && npm install --silent
-echo "[2/5] npm deps installed"
+echo "[2/6] npm deps installed"
 
-# 3. PATH 등록
+# 3. Vault config (optional)
+SKIRO_CONFIG="$HOME/.skiro/config.json"
+mkdir -p "$HOME/.skiro"
+if [[ -n "$VAULT_DIR" ]]; then
+    if [[ -d "$VAULT_DIR" ]]; then
+        # Resolve to absolute path
+        VAULT_ABS="$(cd "$VAULT_DIR" && pwd)"
+        python3 << PYEOF
+import json, os
+config_path = "$SKIRO_CONFIG"
+try:
+    with open(config_path) as f:
+        config = json.load(f)
+except:
+    config = {}
+config["vault_path"] = "$VAULT_ABS"
+with open(config_path, "w") as f:
+    json.dump(config, f, indent=2)
+print(f"vault_path set: $VAULT_ABS")
+PYEOF
+        echo "[3/6] vault configured → $VAULT_ABS"
+    else
+        echo "[3/6] WARNING: vault dir not found: $VAULT_DIR (skipped)"
+    fi
+else
+    if [[ -f "$SKIRO_CONFIG" ]]; then
+        echo "[3/6] vault config unchanged (existing ~/.skiro/config.json)"
+    else
+        echo "[3/6] No --vault specified (skipped, add later with --vault)"
+    fi
+fi
+
+# 4. PATH 등록
 SHELL_RC=""
 [[ -f "$HOME/.bashrc" ]] && SHELL_RC="$HOME/.bashrc"
 [[ -f "$HOME/.zshrc" ]]  && SHELL_RC="$HOME/.zshrc"
@@ -47,7 +82,7 @@ if [[ -n "$SHELL_RC" ]]; then
         echo "export SKIRO_BIN=\"$SKIRO_DIR/bin\""   >> "$SHELL_RC"
     fi
 fi
-echo "[3/5] PATH registered → source your shell rc to activate"
+echo "[4/6] PATH registered → source your shell rc to activate"
 
 # 4. settings.json hooks 설정
 mkdir -p "$(dirname "$SETTINGS")"
@@ -142,12 +177,12 @@ with open("$SETTINGS", "w") as f:
 print("created new settings.json")
 PYEOF
 fi
-echo "[4/5] hooks configured in ~/.claude/settings.json"
+echo "[5/6] hooks configured in ~/.claude/settings.json"
 
 # 5. MCP 등록
 claude mcp remove skiro 2>/dev/null || true
 claude mcp add skiro -s user -- node "$SKIRO_DIR/bin/skiro-mcp-server.mjs"
-echo "[5/5] MCP server registered"
+echo "[5/6] MCP server registered"
 
 # 6. 프로젝트 CLAUDE.md 설치 (선택)
 if [[ -n "$PROJECT_DIR" ]]; then
@@ -179,4 +214,5 @@ echo "Done. Restart Claude Code to activate hooks."
 echo ""
 echo "Verify:"
 echo "  claude mcp list | grep skiro"
+echo "  cat ~/.skiro/config.json"
 echo "  skiro-complexity <your_file.c> --json"
