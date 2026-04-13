@@ -139,38 +139,16 @@ COWORK (claude.ai)                                        ├── ppt/     ←
 
 ---
 
-## Obsidian vault integration
+## Obsidian vault integration (optional)
 
-Obsidian vault를 지식 베이스로 연동. 코딩 중 하드웨어 스펙, 설계 결정, 실험 기록을 자동 참조.
+[Obsidian](https://obsidian.md) vault를 지식 베이스로 연동. 코딩 중 vault 노트를 자동 검색/참조.
 
-```
-~/.skiro/config.json    ← vault_path 저장 (install --vault 또는 수동 설정)
-
-~/vault/                ← Obsidian vault (어디든 OK)
-  ├── 00_Raw/           ← 미정리 메모, 미팅 노트
-  ├── 10_Wiki/          ← 정제된 지식
-  │   ├── Topics/       ← 기술 주제 (motor, sensor, protocol)
-  │   ├── Projects/     ← 프로젝트별 노트
-  │   ├── Decisions/    ← 설계 결정 기록
-  │   └── Skills/       ← 개인 기술/방법론
-  ├── 10_Planning/      ← 계획, 로드맵
-  └── 20_Meta/          ← vault 자체 관리
+```bash
+bash ~/skiro/install.sh --vault ~/path/to/your/vault
 ```
 
-Vault 노트 형식 (YAML frontmatter):
-```yaml
----
-title: AK60 Motor Specs
-tags: [motor, bldc, can-bus]
-summary: AK60-6 모터의 토크/속도/통신 사양
-confidence_score: 0.9
----
-```
-
-사용 흐름:
-1. 코드 수정 중 → `skiro_vault_search(tags: ["motor"])` → 관련 노트 발견
-2. 필요한 노트만 → `skiro_vault_read(note: "ak60-motor")` → 스펙 확인
-3. 실험/결정 기록 → `skiro_vault_write(path: "10_Wiki/Decisions/...")` → vault에 저장
+YAML frontmatter (`tags`, `summary`, `confidence_score`)가 있으면 검색 정확도 향상.
+Vault 자체는 git으로 별도 백업.
 
 ---
 
@@ -258,6 +236,11 @@ bash ~/skiro/install.sh --vault ~/your-vault
 - `~/skiro/` — harness 코드
 - `~/.skiro/` — config, learnings, artifacts, paper states
 - `~/.claude/settings.json` — hooks 설정
+
+Obsidian vault는 별도 git 백업:
+```bash
+cd ~/your-vault && git add -A && git commit -m "vault backup" && git push
+```
 
 ---
 
