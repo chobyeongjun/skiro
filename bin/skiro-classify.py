@@ -12,7 +12,25 @@ if isinstance(val, list):
 val = str(val)
 msg = val.lower()
 
-if len(msg.strip()) < 6:  # 한글 포함: 6자 이상
+if len(msg.strip()) < 15:  # 너무 짧은 입력 무시
+    sys.exit(0)
+
+# 노이즈 필터: 명령/요청/감정 표현은 교훈이 아님
+noise_patterns = [
+    r'^@local',           # @local 명령
+    r'^vault/',           # vault 경로 언급
+    r'^git ',             # git 명령
+    r'해줘$|해라$|하자$|하세요$|해주세요$|시켜$',  # 요청문
+    r'읽어$|확인해$|보여줘$|알려줘$',            # 조회 요청
+    r'MORNING|BRIEFING|briefing',
+    r'obsidian.*정리|정리.*obsidian',
+    r'기억을 못|이전의 내역',                    # 시스템 불만
+    r'^\d+\)',            # 번호 매기기 시작
+    r'<ide_opened|<task-notification',
+    r'chobb0@|hobb0@',
+    r'files changed|insertions\(\+\)',
+]
+if any(re.search(p, msg) for p in noise_patterns):
     sys.exit(0)
 
 sentences = re.split(r'[.!?\n。！？]', val)
@@ -29,6 +47,8 @@ PROB = [
     '발생했','발생해','터졌어','죽었어','멈췄어','먹통',
     '안돼','빌드가 안','컴파일 에러','컴파일이 안',
     '연결이 안','응답이 없','충돌','끊겨','끊켰',
+    '인식 못','인식이 안','인식 불량','탔어','타버렸','과전압','과전류',
+    '망가졌','고장','깨졌','날아갔',
     # 영어
     'not working','doesnt work','does not work',"doesn't work",
     'failed','error','errors','bug','bugs',

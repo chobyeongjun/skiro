@@ -13,10 +13,9 @@ CLASSIFY="$SKIRO_BIN/skiro-classify.py"
 [ -x "$LEARNINGS" ] || exit 0
 [ -f "$CLASSIFY"  ] || exit 0
 
+# v4.0: skiro-learnings가 vault 마크다운을 직접 사용 (SKIRO_LEARNINGS 불필요)
 GLOBAL_SKIRO="$HOME/.skiro"
 mkdir -p "$GLOBAL_SKIRO"
-SKIRO_LEARNINGS="${SKIRO_LEARNINGS:-$GLOBAL_SKIRO/learnings.jsonl}"
-export SKIRO_LEARNINGS
 
 INPUT=$(cat 2>/dev/null || true)
 [ -z "$INPUT" ] && exit 0
