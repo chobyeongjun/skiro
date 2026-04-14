@@ -244,9 +244,29 @@ elif [[ "$CMD" == "search" ]]; then
   python3 - "$LEARNINGS_MD" "$KW" <<'PYEOF'
 import sys, re, os
 
-md_file, kw = sys.argv[1], sys.argv[2].lower()
+md_file, kw_raw = sys.argv[1], sys.argv[2].lower()
 if not os.path.exists(md_file):
     print("learnings 파일 없음"); sys.exit(0)
+
+# 한국어↔영어 자동 매핑
+KO_EN = {
+    '하드웨어':'hardware','소프트웨어':'software','안전':'safety',
+    '제어':'control','프로토콜':'protocol','프로세스':'process',
+    '모터':'motor','센서':'sensor','카메라':'camera','보드':'board',
+    '전압':'voltage','전류':'current','통신':'communication',
+    '에러':'error','오류':'error','버그':'bug','인식':'recognition',
+    '토크':'torque','임피던스':'impedance','어드미턴스':'admittance',
+    '파손':'damage','과전압':'overvoltage','과전류':'overcurrent',
+}
+EN_KO = {v: k for k, v in KO_EN.items()}
+
+# 키워드 확장: 원본 + 매핑된 언어
+kw_variants = [kw_raw]
+if kw_raw in KO_EN:
+    kw_variants.append(KO_EN[kw_raw])
+if kw_raw in EN_KO:
+    kw_variants.append(EN_KO[kw_raw])
+kw = kw_raw  # primary
 
 with open(md_file) as f:
     content = f.read()
@@ -259,7 +279,7 @@ for sec in sections:
     sec_header = sec.split('\n')[0] if sec.startswith('## ') else ''
     for m in re.finditer(r'(### \[.+?\].*?)(?=\n### |\n## |\n---|\Z)', sec, re.DOTALL):
         entries_with_context.append((sec_header + '\n' + m.group(0), m.group(0)))
-results = [(ctx, raw) for ctx, raw in entries_with_context if kw in ctx.lower()]
+results = [(ctx, raw) for ctx, raw in entries_with_context if any(v in ctx.lower() for v in kw_variants)]
 
 for ctx, raw in results:
     lines = raw.strip().split('\n')

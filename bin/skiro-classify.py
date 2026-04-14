@@ -26,6 +26,8 @@ noise_patterns = [
     r'obsidian.*정리|정리.*obsidian',
     r'기억을 못|이전의 내역',                    # 시스템 불만
     r'^\d+\)',            # 번호 매기기 시작
+    r'봐봐$|봐줘$|봐라$|확인해봐$|체크해봐$',  # 점검 요청
+    r'있나\s*봐|없나\s*봐|되나\s*봐',          # 확인 요청
     r'<ide_opened|<task-notification',
     r'chobb0@|hobb0@',
     r'files changed|insertions\(\+\)',
