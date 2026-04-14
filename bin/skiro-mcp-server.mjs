@@ -6,18 +6,19 @@ import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync, rea
 import { join, relative, dirname, extname, basename } from "path";
 import { homedir } from "os";
 
-// Canonical install path
+// Fix Bug 4: canonical install path
 const SKIRO_BIN = process.env.SKIRO_BIN || join(homedir(), "skiro", "bin");
 const LEARNINGS  = join(SKIRO_BIN, "skiro-learnings");
 const COMPLEXITY = join(SKIRO_BIN, "skiro-complexity");
 
-// Global learnings — consistent path across projects
+// Fix Bug 3: 글로벌 learnings — 프로젝트 변경과 무관하게 일관된 경로
 const GLOBAL_SKIRO = join(homedir(), ".skiro");
 mkdirSync(GLOBAL_SKIRO, { recursive: true });
 const ARTIFACTS_FILE = join(GLOBAL_SKIRO, "artifacts.jsonl");
 
 function getLearningsFile() {
-  // Override via env var for per-project learnings
+  // v4.0: skiro-learnings가 vault 마크다운을 직접 읽기/쓰기.
+  // 이 함수는 artifacts.jsonl 경로용으로만 유지.
   return process.env.SKIRO_LEARNINGS || join(GLOBAL_SKIRO, "learnings.jsonl");
 }
 
@@ -26,19 +27,19 @@ function runSafe(file, args) {
   try {
     return execFileSync(file, args, {
       encoding: "utf8",
-      env: { ...process.env, SKIRO_LEARNINGS: getLearningsFile() }
+      env: { ...process.env }
     }).trim();
   } catch (e) {
     return e.stdout?.trim() || e.message;
   }
 }
 
-// Hook cache: check for pre-computed complexity score
+// hook 캐시는 프로젝트별 (process.cwd() 고정이지만 캐시 목적이라 OK)
 function getLastComplexity(filePath) {
-  // Walk up from filePath looking for .skiro/last-complexity.json
+  // filePath 기준 상위로 .skiro 탐색
   const parts = filePath.split("/");
   for (let i = parts.length; i > 0; i--) {
-    const candidate = join(parts.slice(0, i).join("/") || "/", ".skiro", "last-complexity.json");
+    const candidate = join(...parts.slice(0, i), ".skiro", "last-complexity.json");
     if (existsSync(candidate)) {
       try {
         const d = JSON.parse(readFileSync(candidate, "utf8"));
@@ -241,7 +242,7 @@ function buildDependencyGraph(rootDir) {
 }
 
 const server = new Server(
-  { name: "skiro", version: "4.0.0" },
+  { name: "skiro", version: "3.0.0" },
   { capabilities: { tools: {} } }
 );
 
@@ -360,21 +361,6 @@ DO NOT call if any CRITICAL issues remain.`,
         },
         required: ["file_analyzed","tier","score"]
       }
-    },
-    {
-      name: "skiro_archive_experiment",
-      description: `Archive experiment data to ~/research/experiments/{name}/raw/. Call when experiment is done — moves or copies raw data files into structured research directory with meta.json.`,
-      inputSchema: {
-        type: "object",
-        properties: {
-          name:        { type: "string", description: "Experiment name (e.g. '2026-04-10-walking-test')" },
-          source_dir:  { type: "string", description: "Directory containing raw experiment data to archive" },
-          description: { type: "string", description: "One-line experiment description" },
-          status:      { type: "string", enum: ["done","partial","failed"], description: "Experiment status (default: done)" },
-          research_root: { type: "string", description: "Research root directory (default: ~/research)" }
-        },
-        required: ["name", "source_dir", "description"]
-      }
     }
   ]
 }));
@@ -393,7 +379,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     if (args.keyword) solveArgs.push("--keyword", args.keyword);
     runSafe(LEARNINGS, solveArgs);
 
-    // Auto-promote recurring issues (3+) to CHECKLIST.md
+    // Fix: promote --auto → CHECKLIST.md 자동 업데이트
     let checklistArg = "";
     try {
       const gitRoot = execSync("git rev-parse --show-toplevel 2>/dev/null", {
@@ -694,7 +680,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
   }
 
   if (name === "skiro_safety_gate_create") {
-    // Block gate if CRITICAL unsolved issues exist
+    // Fix 1: CRITICAL unsolved 있으면 gate 생성 거부
     const criticalCheck = runSafe(LEARNINGS, ["list", "--status", "unsolved"]);
     // Count lines that are both unsolved [?] AND contain CRITICAL
     const criticalLines = criticalCheck.split("\n").filter(l => l.includes("[?]") && /CRITICAL/i.test(l));
@@ -716,7 +702,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       `tier: ${args.tier}`,
       `score: ${args.score}`,
       `warnings: ${args.warnings || 0}`,
-      `analyst: skiro v4.0`
+      `analyst: skiro v2.1`
     ].join("\n");
     try {
       writeFileSync(gateFile, gateContent);
@@ -724,70 +710,6 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     } catch (e) {
       return { content: [{ type: "text", text: `Failed to create gate: ${e.message}` }] };
     }
-  }
-
-  // ── Archive Experiment ──────────────────────────────────────────
-  if (name === "skiro_archive_experiment") {
-    const researchRoot = args.research_root || join(homedir(), "research");
-    const expDir = join(researchRoot, "experiments", args.name);
-    const rawDir = join(expDir, "raw");
-    const sourceDir = args.source_dir;
-
-    if (!existsSync(sourceDir)) {
-      return { content: [{ type: "text", text: `Source directory not found: ${sourceDir}` }] };
-    }
-
-    // Create structure
-    mkdirSync(rawDir, { recursive: true });
-
-    // Copy files and subdirectories from source to raw/
-    const copied = [];
-    const copyRecursive = (src, dest) => {
-      const entries = readdirSync(src);
-      for (const entry of entries) {
-        const srcPath = join(src, entry);
-        const destPath = join(dest, entry);
-        try {
-          const stat = statSync(srcPath);
-          if (stat.isDirectory()) {
-            mkdirSync(destPath, { recursive: true });
-            copyRecursive(srcPath, destPath);
-          } else if (stat.isFile()) {
-            writeFileSync(destPath, readFileSync(srcPath));
-            copied.push(relative(sourceDir, srcPath));
-          }
-        } catch {}
-      }
-    };
-    try {
-      copyRecursive(sourceDir, rawDir);
-    } catch (e) {
-      return { content: [{ type: "text", text: `Error reading source: ${e.message}` }] };
-    }
-
-    // Create meta.json
-    const meta = {
-      date: args.name.match(/^\d{4}-\d{2}-\d{2}/)?.[0] || new Date().toISOString().slice(0, 10),
-      description: args.description,
-      status: args.status || "done",
-      source: sourceDir,
-      archived: new Date().toISOString()
-    };
-    writeFileSync(join(expDir, "meta.json"), JSON.stringify(meta, null, 2), "utf8");
-
-    // Register as artifact
-    const entry = {
-      date: meta.date,
-      path: expDir,
-      name: args.name,
-      description: `[experiment] ${args.description}`,
-      category: "data",
-      tags: ["experiment", "raw", args.name],
-      project: basename(sourceDir)
-    };
-    appendFileSync(ARTIFACTS_FILE, JSON.stringify(entry) + "\n");
-
-    return { content: [{ type: "text", text: `Archived to ${expDir}\n  raw/ files: ${copied.length} (${copied.join(", ")})\n  meta.json created\n  artifact registered\n\nNext: ppt/ paper/ 승격은 COWORK에서 진행` }] };
   }
 
   return { content: [{ type: "text", text: `Unknown tool: ${name}` }] };
