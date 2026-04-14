@@ -1,11 +1,11 @@
 #!/bin/sh
-# skiro-hook-prompt v3.1
-# UserPromptSubmit hook
+# skiro-hook-prompt v4.0
+# UserPromptSubmit hook — Vault 직접 읽기/쓰기
 #
-# v3.1:
-#   - skiro-classify.py 분리 (heredoc truncation 완전 해결)
-#   - python3 1회 호출 (v2: 3회 → ~3배 빠름)
-#   - slow-path: 패턴 미감지 시 Claude context에 판단 주입
+# v4.0:
+#   - 문제 감지 시 vault에서 유사 교훈 자동 검색 → 있으면 표시
+#   - vault 마크다운 직접 사용 (learnings.jsonl 제거)
+#   - 노이즈 필터 강화
 
 SKIRO_BIN="${SKIRO_BIN:-$HOME/skiro/bin}"
 LEARNINGS="$SKIRO_BIN/skiro-learnings"
@@ -13,14 +13,13 @@ CLASSIFY="$SKIRO_BIN/skiro-classify.py"
 [ -x "$LEARNINGS" ] || exit 0
 [ -f "$CLASSIFY"  ] || exit 0
 
-# v4.0: skiro-learnings가 vault 마크다운을 직접 사용 (SKIRO_LEARNINGS 불필요)
 GLOBAL_SKIRO="$HOME/.skiro"
 mkdir -p "$GLOBAL_SKIRO"
 
 INPUT=$(cat 2>/dev/null || true)
 [ -z "$INPUT" ] && exit 0
 
-# ── python3 단일 호출: 파싱 + 분류 + hash 계산 ───────────────────
+# ── 분류 ───────────────────────────────────────────────────────
 RESULT=$(echo "$INPUT" | python3 "$CLASSIFY" 2>/dev/null)
 [ -z "$RESULT" ] && exit 0
 
@@ -40,18 +39,49 @@ fi
 
 TODAY=$(date +%Y-%m-%d)
 
-# ── Fast-path: 패턴 명확히 매칭된 경우 즉시 저장 ─────────────────
+# ── 문제 감지: vault에 기록 + 유사 교훈 검색 ──────────────────
 if [ "$IS_PROBLEM" = "1" ] && [ "$IS_SOLUTION" = "0" ]; then
     [ -z "$FIRST" ] && exit 0
+
+    # 1) vault에 기록
     "$LEARNINGS" add \
         --problem "$FIRST" \
         --category "$CATEGORY" \
         --severity "$SEVERITY" \
         --context "$TODAY hook-prompt" 2>/dev/null
-    echo "[skiro] [?] $FIRST"
+
+    # 2) 유사 교훈 검색 — 핵심 키워드 추출 후 vault 검색
+    # FIRST에서 핵심 단어 추출 (3글자 이상, 조사/접속사 제외)
+    KEYWORDS=$(echo "$FIRST" | python3 -c "
+import sys, re
+text = sys.stdin.read().lower()
+# 핵심 단어만 추출
+stopwords = {'the','is','a','an','in','on','at','to','for','and','or','but','not','this','that','it','was','are','be','been','have','has','had','do','does','did','will','would','could','should','may','might','can','shall','이','가','을','를','에','의','로','와','과','은','는','도','만','에서','으로','하고','되고','않','못','안','수','것','거','더','좀','다시','아직','그','이런','저런'}
+words = re.findall(r'[a-zA-Z가-힣]{3,}', text)
+keywords = [w for w in words if w not in stopwords][:3]
+print(' '.join(keywords))
+" 2>/dev/null)
+
+    SIMILAR=""
+    for KW in $KEYWORDS; do
+        RESULT=$("$LEARNINGS" search "$KW" 2>/dev/null | grep -v "^$" | grep -v "results for" | head -3)
+        if [ -n "$RESULT" ]; then
+            SIMILAR="$RESULT"
+            break
+        fi
+    done
+
+    if [ -n "$SIMILAR" ]; then
+        echo "[skiro] [?] $FIRST"
+        echo "[skiro/learn] 유사 교훈 발견:"
+        echo "$SIMILAR"
+    else
+        echo "[skiro] [?] $FIRST"
+    fi
     exit 0
 fi
 
+# ── 해결 감지 ─────────────────────────────────────────────────
 if [ "$IS_SOLUTION" = "1" ]; then
     [ -z "$FIRST" ] && exit 0
     SOLVE_OUT=$("$LEARNINGS" solve --solution "$FIRST" 2>/dev/null)
@@ -61,19 +91,9 @@ if [ "$IS_SOLUTION" = "1" ]; then
             --category "process" --severity "INFO" \
             --context "$TODAY hook-prompt(sol)" 2>/dev/null
     fi
-    # promote --auto
-    CHECKLIST=""
-    GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
-    [ -n "$GIT_ROOT" ] && [ -f "$GIT_ROOT/CHECKLIST.md" ] && CHECKLIST="$GIT_ROOT/CHECKLIST.md"
-    [ -n "${SKIRO_CHECKLIST:-}" ] && [ -f "${SKIRO_CHECKLIST:-}" ] && CHECKLIST="${SKIRO_CHECKLIST:-}"
-    if [ -n "$CHECKLIST" ]; then
-        SKIRO_CHECKLIST="$CHECKLIST" "$LEARNINGS" promote 3 --auto 2>/dev/null || true
-    else
-        "$LEARNINGS" promote 3 2>/dev/null || true
-    fi
     echo "[skiro] [v] $FIRST"
     exit 0
 fi
 
-# ── Slow-path: 패턴 미감지 → 무출력 (MCP tool description이 Claude를 안내)
+# ── 미감지 → 무출력
 exit 0
