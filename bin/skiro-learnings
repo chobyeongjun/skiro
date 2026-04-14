@@ -251,12 +251,18 @@ if not os.path.exists(md_file):
 with open(md_file) as f:
     content = f.read()
 
-# Find all ### entries containing keyword
-entries = re.findall(r'(### \[.+?\].*?)(?=\n### |\n## |\n---|\Z)', content, re.DOTALL)
-results = [e for e in entries if kw in e.lower()]
+# Find all ### entries — also search within section headers (## Hardware → 하드웨어)
+# Build section context: each entry inherits its parent ## section name
+sections = re.split(r'\n(?=## )', content)
+entries_with_context = []
+for sec in sections:
+    sec_header = sec.split('\n')[0] if sec.startswith('## ') else ''
+    for m in re.finditer(r'(### \[.+?\].*?)(?=\n### |\n## |\n---|\Z)', sec, re.DOTALL):
+        entries_with_context.append((sec_header + '\n' + m.group(0), m.group(0)))
+results = [(ctx, raw) for ctx, raw in entries_with_context if kw in ctx.lower()]
 
-for e in results:
-    lines = e.strip().split('\n')
+for ctx, raw in results:
+    lines = raw.strip().split('\n')
     print(lines[0])
     for l in lines[1:]:
         if l.startswith('- **해결:**'):
