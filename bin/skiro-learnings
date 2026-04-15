@@ -331,23 +331,142 @@ for k, v in sorted(by_cat.items()):
     print(f"  {k}: {v}")
 PYEOF
 
+# ── reward ──────────────────────────────────────────────────────
+elif [[ "$CMD" == "reward" ]]; then
+  python3 - "$LEARNINGS_MD" "$@" <<'PYEOF'
+import sys, re, os
+from datetime import date
+
+md_file = sys.argv[1]; args = sys.argv[2:]
+kv = {}; i = 0
+while i < len(args):
+    if args[i].startswith('--') and i+1 < len(args):
+        kv[args[i][2:]] = args[i+1]; i += 2
+    else: i += 1
+
+what = kv.get('what', '')
+why = kv.get('why', '')
+category = kv.get('category', 'process')
+context = kv.get('context', '')
+if not what: sys.exit("ERROR: --what 필수")
+
+with open(md_file) as f:
+    content = f.read()
+
+# 중복 체크
+if what[:30] in content:
+    print(f"[DUP] Already exists: {what[:50]}")
+    sys.exit(0)
+
+today = date.today().isoformat()
+entry = f"\n### [REWARD] {what}\n- **왜 잘 됐나:** {why}\n- **카테고리:** {category}\n- **기록일:** {today}\n"
+if context:
+    entry = entry.rstrip() + f"\n- **컨텍스트:** {context}\n"
+
+# Reward Patterns 섹션에 추가
+section = "\n## Reward Patterns\n"
+if section.strip() not in content:
+    if '## Related' in content:
+        pos = content.index('## Related')
+        content = content[:pos] + section + entry + "\n" + content[pos:]
+    else:
+        content += section + entry
+else:
+    pos = content.index(section.strip())
+    rest = content[pos + len(section.strip()):]
+    next_sec = len(content)
+    for m in ['\n## ']:
+        idx = rest.find(m)
+        if idx >= 0:
+            next_sec = min(next_sec, pos + len(section.strip()) + idx)
+    content = content[:next_sec] + entry + content[next_sec:]
+
+content = re.sub(r'updated: \d{4}-\d{2}-\d{2}', f'updated: {today}', content)
+with open(md_file, 'w') as f:
+    f.write(content)
+
+print(f"[+R] {what[:60]}")
+if why:
+    print(f"    왜: {why[:60]}")
+PYEOF
+
+# ── punish ──────────────────────────────────────────────────────
+elif [[ "$CMD" == "punish" ]]; then
+  python3 - "$LEARNINGS_MD" "$@" <<'PYEOF'
+import sys, re, os
+from datetime import date
+
+md_file = sys.argv[1]; args = sys.argv[2:]
+kv = {}; i = 0
+while i < len(args):
+    if args[i].startswith('--') and i+1 < len(args):
+        kv[args[i][2:]] = args[i+1]; i += 2
+    else: i += 1
+
+what = kv.get('what', '')
+why = kv.get('why', '')
+category = kv.get('category', 'process')
+context = kv.get('context', '')
+if not what: sys.exit("ERROR: --what 필수")
+
+with open(md_file) as f:
+    content = f.read()
+
+if what[:30] in content:
+    print(f"[DUP] Already exists: {what[:50]}")
+    sys.exit(0)
+
+today = date.today().isoformat()
+entry = f"\n### [PUNISH] {what}\n- **왜 안 됐나:** {why}\n- **카테고리:** {category}\n- **기록일:** {today}\n"
+if context:
+    entry = entry.rstrip() + f"\n- **컨텍스트:** {context}\n"
+
+section = "\n## Punish Patterns\n"
+if section.strip() not in content:
+    if '## Reward' in content:
+        pos = content.index('## Reward')
+        content = content[:pos] + section + entry + "\n" + content[pos:]
+    elif '## Related' in content:
+        pos = content.index('## Related')
+        content = content[:pos] + section + entry + "\n" + content[pos:]
+    else:
+        content += section + entry
+else:
+    pos = content.index(section.strip())
+    rest = content[pos + len(section.strip()):]
+    next_sec = len(content)
+    for m in ['\n## ']:
+        idx = rest.find(m)
+        if idx >= 0:
+            next_sec = min(next_sec, pos + len(section.strip()) + idx)
+    content = content[:next_sec] + entry + content[next_sec:]
+
+content = re.sub(r'updated: \d{4}-\d{2}-\d{2}', f'updated: {today}', content)
+with open(md_file, 'w') as f:
+    f.write(content)
+
+print(f"[-P] {what[:60]}")
+if why:
+    print(f"    왜: {why[:60]}")
+PYEOF
+
 # ── promote ──────────────────────────────────────────────────────
 elif [[ "$CMD" == "promote" ]]; then
-  echo "promote: vault 기반에서는 CHECKLIST.md에 직접 편집. skiro-learnings list --status unsolved 로 후보 확인."
+  echo "promote: vault 기반에서는 CHECKLIST.md에 직접 편집."
 
 # ── help ─────────────────────────────────────────────────────────
 else
-  echo "skiro-learnings v4.0 — Obsidian Vault 직접 읽기/쓰기"
+  echo "skiro-learnings v4.1 — Obsidian Vault + Reward/Punish 강화학습"
   echo "Storage: vault/Research/10_Wiki/skiro-learnings.md"
   echo ""
   echo "Usage: skiro-learnings <cmd>"
-  echo "  add     --problem <문제> [--solution <해결책>] [--category <cat>] [--severity <sev>] [--context <ctx>]"
+  echo "  add     --problem <문제> [--solution <해결>] [--category <cat>] [--severity <sev>]"
   echo "  solve   --solution <해결책> [--keyword <검색어>]"
-  echo "  list    [--last <N>] [--status solved|unsolved] [--category <cat>] [--severity CRITICAL|WARNING|INFO]"
+  echo "  reward  --what <잘된 것> --why <왜 잘됐나> [--category <cat>]"
+  echo "  punish  --what <안된 것> --why <왜 안됐나> [--category <cat>]"
+  echo "  list    [--last N] [--status solved|unsolved] [--category <cat>]"
   echo "  search  <keyword>"
   echo "  count"
-  echo "  promote (CHECKLIST.md 직접 편집 안내)"
   echo ""
   echo "Vault: ${VAULT_PATH:-not found}"
-  echo "Categories: safety|control|hardware|software|protocol|process|experiment"
 fi

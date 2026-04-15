@@ -1,11 +1,12 @@
 #!/bin/sh
-# skiro-hook-prompt v4.0
-# UserPromptSubmit hook — Vault 직접 읽기/쓰기
+# skiro-hook-prompt v4.1
+# UserPromptSubmit hook — Reward/Punish 강화학습 + Vault 직접 읽기/쓰기
 #
-# v4.0:
-#   - 문제 감지 시 vault에서 유사 교훈 자동 검색 → 있으면 표시
-#   - vault 마크다운 직접 사용 (learnings.jsonl 제거)
-#   - 노이즈 필터 강화
+# 신호 감지:
+#   - 문제 → vault에 기록 + 유사 교훈 검색
+#   - 해결 → vault에서 미해결 항목 연결
+#   - REWARD → "잘 돼", "완벽해" → 왜 잘 됐는지 기록
+#   - PUNISH → "때문에 안 돼", "이유는" → 왜 안 됐는지 기록
 
 SKIRO_BIN="${SKIRO_BIN:-$HOME/skiro/bin}"
 LEARNINGS="$SKIRO_BIN/skiro-learnings"
@@ -19,16 +20,18 @@ mkdir -p "$GLOBAL_SKIRO"
 INPUT=$(cat 2>/dev/null || true)
 [ -z "$INPUT" ] && exit 0
 
-# ── 분류 ───────────────────────────────────────────────────────
+# ── 분류 (v4.1: 6필드 → 8필드) ────────────────────────────────
 RESULT=$(echo "$INPUT" | python3 "$CLASSIFY" 2>/dev/null)
 [ -z "$RESULT" ] && exit 0
 
-MSG_HASH=$(echo "$RESULT"   | cut -d'|' -f1)
-IS_PROBLEM=$(echo "$RESULT" | cut -d'|' -f2)
-IS_SOLUTION=$(echo "$RESULT"| cut -d'|' -f3)
-CATEGORY=$(echo "$RESULT"   | cut -d'|' -f4)
-SEVERITY=$(echo "$RESULT"   | cut -d'|' -f5)
-FIRST=$(echo "$RESULT"      | cut -d'|' -f6)
+MSG_HASH=$(echo "$RESULT"    | cut -d'|' -f1)
+IS_PROBLEM=$(echo "$RESULT"  | cut -d'|' -f2)
+IS_SOLUTION=$(echo "$RESULT" | cut -d'|' -f3)
+IS_REWARD=$(echo "$RESULT"   | cut -d'|' -f4)
+IS_PUNISH=$(echo "$RESULT"   | cut -d'|' -f5)
+CATEGORY=$(echo "$RESULT"    | cut -d'|' -f6)
+SEVERITY=$(echo "$RESULT"    | cut -d'|' -f7)
+FIRST=$(echo "$RESULT"       | cut -d'|' -f8)
 
 # 중복 방지
 LAST_HASH="$GLOBAL_SKIRO/.last-prompt-hash"
@@ -39,27 +42,64 @@ fi
 
 TODAY=$(date +%Y-%m-%d)
 
+# ── REWARD: 잘 됐다 → 왜 잘 됐는지 기록 ────────────────────────
+if [ "$IS_REWARD" = "1" ]; then
+    [ -z "$FIRST" ] && exit 0
+    "$LEARNINGS" reward \
+        --what "$FIRST" \
+        --why "auto-detected positive signal" \
+        --category "$CATEGORY" \
+        --context "$TODAY hook-prompt" 2>/dev/null
+    echo "[skiro] [+R] $FIRST"
+    exit 0
+fi
+
+# ── PUNISH: 원인 분석 → 왜 안 됐는지 기록 ──────────────────────
+if [ "$IS_PUNISH" = "1" ]; then
+    [ -z "$FIRST" ] && exit 0
+    "$LEARNINGS" punish \
+        --what "$FIRST" \
+        --why "auto-detected negative cause analysis" \
+        --category "$CATEGORY" \
+        --context "$TODAY hook-prompt" 2>/dev/null
+
+    # 유사 reward 검색 — 반대 사례가 있으면 표시
+    KEYWORDS=$(echo "$FIRST" | python3 -c "
+import sys, re
+text = sys.stdin.read().lower()
+stopwords = {'the','is','a','an','in','on','이','가','을','를','에','의','로','은','는','도','만','때문에','이유는','원인은','하면','안','못'}
+words = re.findall(r'[a-zA-Z가-힣]{3,}', text)
+print(' '.join([w for w in words if w not in stopwords][:3]))
+" 2>/dev/null)
+    for KW in $KEYWORDS; do
+        REWARD_HIT=$("$LEARNINGS" search "$KW" 2>/dev/null | grep "REWARD" | head -1)
+        if [ -n "$REWARD_HIT" ]; then
+            echo "[skiro] [-P] $FIRST"
+            echo "[skiro/learn] 반대 사례(REWARD) 발견:"
+            echo "$REWARD_HIT"
+            exit 0
+        fi
+    done
+    echo "[skiro] [-P] $FIRST"
+    exit 0
+fi
+
 # ── 문제 감지: vault에 기록 + 유사 교훈 검색 ──────────────────
 if [ "$IS_PROBLEM" = "1" ] && [ "$IS_SOLUTION" = "0" ]; then
     [ -z "$FIRST" ] && exit 0
-
-    # 1) vault에 기록
     "$LEARNINGS" add \
         --problem "$FIRST" \
         --category "$CATEGORY" \
         --severity "$SEVERITY" \
         --context "$TODAY hook-prompt" 2>/dev/null
 
-    # 2) 유사 교훈 검색 — 핵심 키워드 추출 후 vault 검색
-    # FIRST에서 핵심 단어 추출 (3글자 이상, 조사/접속사 제외)
+    # 유사 교훈 + reward/punish 패턴 검색
     KEYWORDS=$(echo "$FIRST" | python3 -c "
 import sys, re
 text = sys.stdin.read().lower()
-# 핵심 단어만 추출
-stopwords = {'the','is','a','an','in','on','at','to','for','and','or','but','not','this','that','it','was','are','be','been','have','has','had','do','does','did','will','would','could','should','may','might','can','shall','이','가','을','를','에','의','로','와','과','은','는','도','만','에서','으로','하고','되고','않','못','안','수','것','거','더','좀','다시','아직','그','이런','저런'}
+stopwords = {'the','is','a','이','가','을','를','에','의','로','은','는','안','못','수','것','거'}
 words = re.findall(r'[a-zA-Z가-힣]{3,}', text)
-keywords = [w for w in words if w not in stopwords][:3]
-print(' '.join(keywords))
+print(' '.join([w for w in words if w not in stopwords][:3]))
 " 2>/dev/null)
 
     SIMILAR=""
@@ -84,16 +124,9 @@ fi
 # ── 해결 감지 ─────────────────────────────────────────────────
 if [ "$IS_SOLUTION" = "1" ]; then
     [ -z "$FIRST" ] && exit 0
-    SOLVE_OUT=$("$LEARNINGS" solve --solution "$FIRST" 2>/dev/null)
-    if echo "$SOLVE_OUT" | grep -q "unsolved"; then
-        "$LEARNINGS" add \
-            --problem "$FIRST" --solution "$FIRST" \
-            --category "process" --severity "INFO" \
-            --context "$TODAY hook-prompt(sol)" 2>/dev/null
-    fi
+    "$LEARNINGS" solve --solution "$FIRST" 2>/dev/null
     echo "[skiro] [v] $FIRST"
     exit 0
 fi
 
-# ── 미감지 → 무출력
 exit 0
