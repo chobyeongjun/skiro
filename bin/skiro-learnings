@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# skiro-learnings v4.0 — Obsidian Vault 직접 읽기/쓰기
-# learnings.jsonl 제거, vault/Research/10_Wiki/skiro-learnings.md가 Single Source of Truth
-# Commands: add | solve | list | search | count | promote
+# skiro-learnings v4.1 — Obsidian Vault 직접 읽기/쓰기 + Research/Life 분리
+# Research: 연구/하드웨어/제어/안전/소프트웨어/프로토콜
+# Life: 블로그/콘텐츠/유튜브/개인 작업
+# Commands: add | solve | reward | punish | list | search | count
 
 # Vault 경로 탐색
 find_vault() {
   for p in "${SKIRO_VAULT:-}" "$HOME/vault" "$HOME/0xhenry.dev/vault"; do
     [[ -d "$p/Research" ]] && echo "$p" && return
   done
-  # symlink resolve
   [[ -L "$HOME/vault" ]] && echo "$(readlink -f "$HOME/vault")" && return
   echo ""
 }
@@ -19,15 +19,41 @@ if [[ -z "$VAULT_PATH" ]]; then
   exit 1
 fi
 
+# Life 카테고리: 이 카테고리면 Life/10_Wiki/life-learnings.md 사용
+LIFE_CATS="blog|content|youtube|personal|life|naver|콘텐츠|블로그|유튜브"
+
+# 기본은 Research
 LEARNINGS_MD="$VAULT_PATH/Research/10_Wiki/skiro-learnings.md"
-mkdir -p "$(dirname "$LEARNINGS_MD")"
+LIFE_LEARNINGS_MD="$VAULT_PATH/Life/10_Wiki/life-learnings.md"
+mkdir -p "$(dirname "$LEARNINGS_MD")" "$(dirname "$LIFE_LEARNINGS_MD")"
+
+# 카테고리로 파일 선택하는 함수
+pick_file() {
+  local cat="$1"
+  if echo "$cat" | grep -qiE "$LIFE_CATS"; then
+    echo "$LIFE_LEARNINGS_MD"
+  else
+    echo "$LEARNINGS_MD"
+  fi
+}
 
 CMD="${1:-help}"
 shift || true
 
+# 카테고리 추출 (args에서 --category 값 찾기)
+_extract_cat() {
+  local args=("$@")
+  for ((i=0; i<${#args[@]}; i++)); do
+    [[ "${args[$i]}" == "--category" ]] && echo "${args[$((i+1))]}" && return
+  done
+  echo "process"
+}
+_CAT=$(_extract_cat "$@")
+TARGET_MD=$(pick_file "$_CAT")
+
 # ── add ──────────────────────────────────────────────────────────
 if [[ "$CMD" == "add" ]]; then
-  python3 - "$LEARNINGS_MD" "$@" <<'PYEOF'
+  python3 - "$TARGET_MD" "$@" <<'PYEOF'
 import sys, re, os
 from datetime import date
 
@@ -121,7 +147,7 @@ PYEOF
 
 # ── solve ────────────────────────────────────────────────────────
 elif [[ "$CMD" == "solve" ]]; then
-  python3 - "$LEARNINGS_MD" "$@" <<'PYEOF'
+  python3 - "$TARGET_MD" "$@" <<'PYEOF'
 import sys, re, os
 from datetime import date
 
@@ -174,7 +200,7 @@ PYEOF
 
 # ── list ─────────────────────────────────────────────────────────
 elif [[ "$CMD" == "list" ]]; then
-  python3 - "$LEARNINGS_MD" "$@" <<'PYEOF'
+  python3 - "$TARGET_MD" "$@" <<'PYEOF'
 import sys, re, os
 
 md_file = sys.argv[1]; args = sys.argv[2:]
@@ -238,10 +264,12 @@ if all_unsolved > unsolved:
     print(f"[!] Unsolved: {all_unsolved}")
 PYEOF
 
-# ── search ───────────────────────────────────────────────────────
+# ── search (양쪽 파일 모두 검색) ────────────────────────────────
 elif [[ "$CMD" == "search" ]]; then
   KW="${1:-}"; [[ -z "$KW" ]] && { echo "Usage: skiro-learnings search <keyword>"; exit 1; }
-  python3 - "$LEARNINGS_MD" "$KW" <<'PYEOF'
+  # Research + Life 양쪽 검색
+  for _F in "$LEARNINGS_MD" "$LIFE_LEARNINGS_MD"; do
+    [[ -f "$_F" ]] && python3 - "$_F" "$KW" <<'PYEOF'
 import sys, re, os
 
 md_file, kw_raw = sys.argv[1], sys.argv[2].lower()
@@ -290,10 +318,11 @@ for ctx, raw in results:
 
 print(f"\n{len(results)} results for '{sys.argv[2]}'")
 PYEOF
+  done
 
 # ── count ────────────────────────────────────────────────────────
 elif [[ "$CMD" == "count" ]]; then
-  python3 - "$LEARNINGS_MD" <<'PYEOF'
+  python3 - "$TARGET_MD" <<'PYEOF'
 import sys, re, os
 
 md_file = sys.argv[1]
@@ -333,7 +362,7 @@ PYEOF
 
 # ── reward ──────────────────────────────────────────────────────
 elif [[ "$CMD" == "reward" ]]; then
-  python3 - "$LEARNINGS_MD" "$@" <<'PYEOF'
+  python3 - "$TARGET_MD" "$@" <<'PYEOF'
 import sys, re, os
 from datetime import date
 
@@ -392,7 +421,7 @@ PYEOF
 
 # ── punish ──────────────────────────────────────────────────────
 elif [[ "$CMD" == "punish" ]]; then
-  python3 - "$LEARNINGS_MD" "$@" <<'PYEOF'
+  python3 - "$TARGET_MD" "$@" <<'PYEOF'
 import sys, re, os
 from datetime import date
 
