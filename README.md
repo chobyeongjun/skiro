@@ -214,6 +214,7 @@ claude mcp add skiro-cowork -s user -- node ~/skiro/cowork/skiro-cowork-server.m
 | `cowork_scan_experiments` | 실험/미팅 데이터 전체 스캔 (3-tier) |
 | `cowork_paper_state` | 논문 설계 상태 (list/get/set/update, atomic write + schema 검증) |
 | `cowork_paper_check` | 논문 state 일관성 검증 (실험/figure/완성도 교차 확인) |
+| `cowork_paper_guide` | 4-phase 논문 방법론 가이드 (AI Scientist, Nature 2026 기반) |
 | `cowork_promote_data` | raw→ppt→paper 데이터 승격 |
 
 Details: [cowork/README.md](cowork/README.md)

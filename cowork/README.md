@@ -43,6 +43,7 @@ claude mcp add skiro-cowork -s user -- node ~/skiro/cowork/skiro-cowork-server.m
 | `cowork_scan_experiments` | Scan experiments/meetings inventory | "이 프로젝트 실험 전체 현황 파악해줘" |
 | `cowork_paper_state` | Paper design state (list/get/set/update) | "논문 구조 설계 저장해줘" / "현재 논문 상태 보여줘" |
 | `cowork_paper_check` | Validate paper state consistency | "논문 상태 검증해줘" (set/update 후 필수) |
+| `cowork_paper_guide` | 4-phase paper methodology (AI Scientist ref.) | 논문 세션 시작 시 자동 호출 |
 
 ---
 

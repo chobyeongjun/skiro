@@ -59,7 +59,18 @@ with open(config_path, "w") as f:
     json.dump(config, f, indent=2)
 print(f"vault_path set: $VAULT_ABS")
 PYEOF
-        echo "[3/6] vault configured → $VAULT_ABS"
+        # Copy vault template notes if they don't exist yet
+        VAULT_TEMPLATES="$SKIRO_DIR/templates/vault"
+        if [[ -d "$VAULT_TEMPLATES" ]]; then
+            mkdir -p "$VAULT_ABS/20_Meta/skiro"
+            for note in "$VAULT_TEMPLATES"/*.md; do
+                DEST="$VAULT_ABS/20_Meta/skiro/$(basename "$note")"
+                if [[ ! -f "$DEST" ]]; then
+                    cp "$note" "$DEST"
+                fi
+            done
+        fi
+        echo "[3/6] vault configured → $VAULT_ABS (reference notes in 20_Meta/skiro/)"
     else
         echo "[3/6] WARNING: vault dir not found: $VAULT_DIR (skipped)"
     fi

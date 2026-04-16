@@ -91,7 +91,7 @@ function validatePaperState(state, isUpdate) {
 // ── MCP Server ───────────────────────────────────────────────────
 
 const server = new Server(
-  { name: "skiro-cowork", version: "1.0.0" },
+  { name: "skiro-cowork", version: "2.0.0" },
   { capabilities: { tools: {} } }
 );
 
@@ -213,6 +213,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           to_tier:         { type: "string", enum: ["ppt","paper"], description: "Destination tier" }
         },
         required: ["experiment_path", "files", "from_tier", "to_tier"]
+      }
+    },
+    {
+      name: "cowork_paper_guide",
+      description: "Returns the 4-phase paper writing methodology (based on The AI Scientist, Nature 2026). Call at the START of any paper session to remind yourself of the correct workflow. Covers: Ideation, Experimentation, Write-up, Review — and which skiro tools to use at each phase.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          phase: { type: "string", enum: ["all","ideation","experimentation","writeup","review"], description: "Show specific phase (default: all)" }
+        }
       }
     }
   ]
@@ -934,6 +944,106 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     }
 
     return { content: [{ type: "text", text: lines.join("\n") }] };
+  }
+
+  // ── Paper Guide ─────────────────────────────────────────────
+  if (name === "cowork_paper_guide") {
+    const phase = args.phase || "all";
+    const sections = [];
+
+    if (phase === "all" || phase === "ideation") {
+      sections.push(`## Phase 1: Ideation (구조 설계)
+
+논문의 연구 내러티브를 기존 데이터에서 자동 추출한다.
+
+**실행 순서:**
+1. \`cowork_paper_state(action="list")\` — 기존 논문 있나 확인
+2. \`cowork_scan_experiments(project_path)\` — 실험 전체 파악
+3. \`cowork_get_learnings(format="paper")\` — 방법론 변경 이력 (Methods 근거)
+4. Claude가 연구 내러티브 추출:
+   - 어떤 문제를 풀었나 → Introduction
+   - 어떤 방법을 시도했나 (실패 포함) → Methods
+   - 핵심 기여가 무엇인가 → Contributions
+5. \`cowork_paper_state(action="set", paper_id="...", state={title, contributions, sections, gaps})\`
+6. \`cowork_paper_check(paper_id)\` — 반드시 검증
+
+**핵심**: learnings의 problem→solution 이력이 곧 Methods 변경 근거.
+`);
+    }
+
+    if (phase === "all" || phase === "experimentation") {
+      sections.push(`## Phase 2: Experimentation (실험 데이터 축적)
+
+The AI Scientist의 4단계 tree search 참고:
+1. Preliminary investigation — 기초 탐색
+2. Hyperparameter tuning — 파라미터 최적화
+3. Research agenda execution — 본 실험
+4. Ablation studies — 각 요소 기여 분석
+
+**skiro 데이터 흐름:**
+- Claude Code에서 실험 → \`skiro_archive_experiment\` → raw/ 보존
+- Figure 생성 → \`skiro_save_artifact(category="figure")\`
+- 이슈 기록 → \`skiro_record_problem/solution\`
+
+**3-tier 관리 (COWORK에서):**
+- \`cowork_promote_data(raw→ppt)\` — 발표용 선별
+- \`cowork_promote_data(ppt→paper)\` — 출판용 최종
+`);
+    }
+
+    if (phase === "all" || phase === "writeup") {
+      sections.push(`## Phase 3: Write-up (논문 작성)
+
+섹션별 순서 (전체 로드 금지, 해당 섹션만):
+
+1. \`cowork_paper_state(action="get")\` — 현재 구조 확인
+2. \`cowork_paper_data(section="methods")\` — 해당 섹션 데이터 추출
+3. Claude가 초안 작성
+4. \`cowork_paper_state(action="update", state={completion_pct:N})\` — 진행률 갱신
+
+**섹션별 데이터 소스:**
+| Section | 소스 | 도구 |
+|---------|------|------|
+| Introduction | git 통계, 기술 영역, 연구 배경 | paper_data("introduction") |
+| Methods | 문제→해결 이력, 방법론 변경 이유 | paper_data("methods") + learnings |
+| Results | figure 목록, 데이터 파일, 이슈 통계 | paper_data("results") + artifacts |
+| Discussion | 미해결 이슈, 반복 문제, 한계점, 교훈 | paper_data("discussion") |
+`);
+    }
+
+    if (phase === "all" || phase === "review") {
+      sections.push(`## Phase 4: Review (자기 검증)
+
+The AI Scientist: 자동 리뷰어 (NeurIPS 기준, 5회 ensemble → meta-review)
+
+**skiro 적용:**
+1. \`cowork_paper_check(paper_id, project_path)\` — 구조 일관성 검증
+   - 참조 실험 존재?
+   - key_figures 등록됨?
+   - completion_pct vs section status 일치?
+   - high-priority gap 남아있나?
+2. Claude가 각 섹션 비판적 리뷰 (soundness, contribution, clarity)
+3. gap → Phase 2로 돌아가서 추가 실험
+4. 모두 통과 → 출판 준비
+
+**검증 타이밍:** 매 state 변경 후 반드시 paper_check 실행.
+`);
+    }
+
+    if (phase === "all") {
+      sections.push(`## 핵심 원칙
+
+1. **데이터 먼저, 작성 나중** — 실험 데이터 충분히 쌓인 후 구조 설계
+2. **Methods = learnings** — problem→solution 이력이 방법론 변경 근거
+3. **증분 업데이트** — update로 해당 섹션만 갱신 (전체 재설계 금지)
+4. **부분 로드** — 섹션 단위 데이터만 로드 (context 절약)
+5. **검증 후 진행** — paper_check 통과 후 다음 단계
+6. **Figure 독립** — PaperBanana 등 외부 도구 OK, artifact 등록만 하면 됨
+
+Reference: "Towards end-to-end automation of AI research" (Lu et al., Nature 651, 2026)`);
+    }
+
+    return { content: [{ type: "text", text: sections.join("\n") }] };
   }
 
   return { content: [{ type: "text", text: `Unknown tool: ${name}` }] };
