@@ -7,7 +7,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { execSync } from "child_process";
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync, mkdirSync } from "fs";
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync, mkdirSync, renameSync } from "fs";
 import { join, basename, extname } from "path";
 import { homedir } from "os";
 
@@ -53,6 +53,39 @@ function getGitStats(projectPath, days = 30) {
   } catch {
     return { commits: 0, insertions: 0, deletions: 0 };
   }
+}
+
+// Atomic write: tmp + rename prevents corruption on crash
+function atomicWriteJSON(filePath, obj) {
+  const tmp = filePath + ".tmp";
+  writeFileSync(tmp, JSON.stringify(obj, null, 2), "utf8");
+  renameSync(tmp, filePath);
+}
+
+// Schema validation for paper state
+function validatePaperState(state, isUpdate) {
+  const errs = [];
+  if (!isUpdate && !state.title) errs.push("title is required (full set)");
+  if (state.completion_pct != null) {
+    const n = Number(state.completion_pct);
+    if (isNaN(n) || n < 0 || n > 100) errs.push("completion_pct must be 0-100");
+  }
+  for (const key of ["sections", "contributions", "gaps", "key_figures"]) {
+    if (state[key] != null && !Array.isArray(state[key])) errs.push(`${key} must be array`);
+  }
+  if (Array.isArray(state.sections)) {
+    state.sections.forEach((s, i) => {
+      if (!s || typeof s !== "object") { errs.push(`sections[${i}] must be object`); return; }
+      if (!s.name) errs.push(`sections[${i}].name required`);
+    });
+  }
+  if (Array.isArray(state.gaps)) {
+    state.gaps.forEach((g, i) => {
+      if (!g || typeof g !== "object") { errs.push(`gaps[${i}] must be object`); return; }
+      if (!g.description) errs.push(`gaps[${i}].description required`);
+    });
+  }
+  return errs;
 }
 
 // ── MCP Server ───────────────────────────────────────────────────
@@ -145,15 +178,27 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "cowork_paper_state",
-      description: "Read or write persistent paper design state. Tracks: title, contributions, section structure, key figures, completion %, gaps. Survives across sessions so paper design evolves incrementally.",
+      description: "Read or write persistent paper design state (title, contributions, sections, key_figures, completion_pct, gaps). Actions: list (enumerate all papers), get (read), set (full overwrite with validation), update (partial merge with existing). Atomic writes prevent corruption.",
       inputSchema: {
         type: "object",
         properties: {
-          paper_id:   { type: "string", description: "Unique paper identifier (e.g. 'walking-robot-2026')" },
-          action:     { type: "string", enum: ["get","set"], description: "get: read current state, set: save updated state" },
-          state:      { type: "object", description: "Paper state to save (only for action=set). Should include: title, contributions, sections, key_figures, completion_pct, gaps" }
+          paper_id:   { type: "string", description: "Unique paper identifier (required for get/set/update, ignored for list)" },
+          action:     { type: "string", enum: ["list","get","set","update"], description: "list: all papers, get: read, set: full overwrite, update: partial merge" },
+          state:      { type: "object", description: "Paper state (required for set/update). Keys: title, contributions[], sections[{name,status,key_experiments[]}], key_figures[], completion_pct (0-100), gaps[{description,priority,type}]" }
         },
-        required: ["paper_id", "action"]
+        required: ["action"]
+      }
+    },
+    {
+      name: "cowork_paper_check",
+      description: "Validate paper_state consistency: (1) referenced experiments exist in project, (2) key_figures resolve to actual artifacts, (3) completion_pct matches section status, (4) unresolved high-priority gaps. Run before deciding next steps.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          paper_id:     { type: "string", description: "Paper identifier to validate" },
+          project_path: { type: "string", description: "Project root (to locate experiments/)" }
+        },
+        required: ["paper_id"]
       }
     },
     {
@@ -634,13 +679,41 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 
   // ── Paper State ───────────────────────────────────────────────
   if (name === "cowork_paper_state") {
-    const paperId = args.paper_id.replace(/[^a-zA-Z0-9_-]/g, "_");
     if (!existsSync(PAPER_STATE_DIR)) mkdirSync(PAPER_STATE_DIR, { recursive: true });
+
+    // List: enumerate all papers
+    if (args.action === "list") {
+      let files = [];
+      try { files = readdirSync(PAPER_STATE_DIR).filter(f => f.endsWith(".json") && !f.endsWith(".tmp")); } catch {}
+      if (!files.length) return { content: [{ type: "text", text: "No paper states yet. Create one with action=set + paper_id + state." }] };
+      const lines = [`## Saved Papers (${files.length})\n`];
+      for (const f of files) {
+        const id = f.replace(/\.json$/, "");
+        try {
+          const s = JSON.parse(readFileSync(join(PAPER_STATE_DIR, f), "utf8"));
+          lines.push(`- **${id}** — ${s.title || "(no title)"}`);
+          const meta = [];
+          if (s.completion_pct != null) meta.push(`${s.completion_pct}%`);
+          if (s.sections?.length) meta.push(`${s.sections.length} sections`);
+          if (s.gaps?.length) meta.push(`${s.gaps.length} gaps`);
+          if (s.updated) meta.push(`updated ${s.updated}`);
+          if (meta.length) lines.push(`  ${meta.join(" | ")}`);
+        } catch {
+          lines.push(`- **${id}** — (corrupted, cannot parse)`);
+        }
+      }
+      return { content: [{ type: "text", text: lines.join("\n") }] };
+    }
+
+    if (!args.paper_id) {
+      return { content: [{ type: "text", text: `Error: paper_id required for action="${args.action}". Use action="list" to see existing papers.` }] };
+    }
+    const paperId = args.paper_id.replace(/[^a-zA-Z0-9_-]/g, "_");
     const stateFile = join(PAPER_STATE_DIR, `${paperId}.json`);
 
     if (args.action === "get") {
       if (!existsSync(stateFile)) {
-        return { content: [{ type: "text", text: `No paper state found for "${args.paper_id}". Use action="set" to create initial state.` }] };
+        return { content: [{ type: "text", text: `No paper state found for "${args.paper_id}". Use action="set" to create initial state, or action="list" to see existing papers.` }] };
       }
       try {
         const state = JSON.parse(readFileSync(stateFile, "utf8"));
@@ -675,24 +748,136 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         lines.push(`\n---\nRaw state:\n\`\`\`json\n${JSON.stringify(state, null, 2)}\n\`\`\``);
         return { content: [{ type: "text", text: lines.join("\n") }] };
       } catch (e) {
-        return { content: [{ type: "text", text: `Error reading state: ${e.message}` }] };
+        return { content: [{ type: "text", text: `Error reading state (corrupted file?): ${e.message}\nFile: ${stateFile}` }] };
       }
     }
 
-    if (args.action === "set") {
-      if (!args.state) {
-        return { content: [{ type: "text", text: "Error: state object required for action=set" }] };
+    if (args.action === "set" || args.action === "update") {
+      if (!args.state || typeof args.state !== "object" || Array.isArray(args.state)) {
+        return { content: [{ type: "text", text: `Error: state object required for action="${args.action}"` }] };
       }
+
+      const isUpdate = args.action === "update";
+      const errs = validatePaperState(args.state, isUpdate);
+      if (errs.length) {
+        return { content: [{ type: "text", text: `Validation errors:\n${errs.map(e => "- " + e).join("\n")}` }] };
+      }
+
+      // Merge with existing for update
+      let merged = { ...args.state };
+      if (isUpdate && existsSync(stateFile)) {
+        try {
+          const prev = JSON.parse(readFileSync(stateFile, "utf8"));
+          merged = { ...prev, ...args.state };
+        } catch (e) {
+          return { content: [{ type: "text", text: `Existing state corrupted, cannot update: ${e.message}\nUse action="set" to overwrite.` }] };
+        }
+      }
+
+      const state = {
+        ...merged,
+        updated: new Date().toISOString().slice(0, 10),
+        schema_version: 1
+      };
+
       try {
-        const state = { ...args.state, updated: new Date().toISOString().slice(0, 10) };
-        writeFileSync(stateFile, JSON.stringify(state, null, 2), "utf8");
-        return { content: [{ type: "text", text: `Paper state saved: ${paperId}\nCompletion: ${state.completion_pct || "?"}%\nSections: ${(state.sections || []).length}\nGaps: ${(state.gaps || []).length}` }] };
+        atomicWriteJSON(stateFile, state);
       } catch (e) {
         return { content: [{ type: "text", text: `Error saving state: ${e.message}` }] };
       }
+
+      return { content: [{ type: "text", text: `Paper state ${args.action}: ${paperId}\nCompletion: ${state.completion_pct ?? "?"}%\nSections: ${(state.sections || []).length}\nGaps: ${(state.gaps || []).length}\n\nNext: run cowork_paper_check to validate consistency.` }] };
     }
 
-    return { content: [{ type: "text", text: `Unknown action: ${args.action}. Use "get" or "set".` }] };
+    return { content: [{ type: "text", text: `Unknown action: ${args.action}. Use "list", "get", "set", or "update".` }] };
+  }
+
+  // ── Paper Check ────────────────────────────────────────────────
+  if (name === "cowork_paper_check") {
+    const paperId = args.paper_id.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const stateFile = join(PAPER_STATE_DIR, `${paperId}.json`);
+    if (!existsSync(stateFile)) {
+      return { content: [{ type: "text", text: `No state for "${args.paper_id}". Run cowork_scan_experiments + cowork_paper_state(action=set) first.` }] };
+    }
+    let state;
+    try { state = JSON.parse(readFileSync(stateFile, "utf8")); }
+    catch (e) { return { content: [{ type: "text", text: `State file corrupted: ${e.message}` }] }; }
+
+    const projectPath = args.project_path || process.cwd();
+    const issues = [];
+    const ok = [];
+
+    // 1. Referenced experiments exist
+    const expDir = join(projectPath, "experiments");
+    let experiments = [];
+    if (existsSync(expDir)) {
+      try {
+        experiments = readdirSync(expDir).filter(f => {
+          try { return statSync(join(expDir, f)).isDirectory(); } catch { return false; }
+        });
+      } catch {}
+    }
+    const referencedExps = new Set();
+    (state.sections || []).forEach(s => (s.key_experiments || []).forEach(e => referencedExps.add(e)));
+    if (referencedExps.size === 0) {
+      if ((state.sections || []).length) issues.push("no sections reference any experiment (key_experiments empty)");
+    } else {
+      for (const ref of referencedExps) {
+        if (experiments.includes(ref)) ok.push(`experiment exists: ${ref}`);
+        else issues.push(`referenced experiment not found in ${expDir}/: ${ref}`);
+      }
+    }
+
+    // 2. Key figures resolve to artifacts
+    const artifacts = readJsonl(ARTIFACTS_FILE);
+    const figurePaths = artifacts.filter(a => a.category === "figure").map(a => a.path);
+    (state.key_figures || []).forEach(f => {
+      const matched = figurePaths.some(p => p === f || p.endsWith("/" + f) || basename(p) === f);
+      if (matched) ok.push(`figure found: ${f}`);
+      else issues.push(`key_figure not in artifacts: ${f} (run skiro_save_artifact in Code session)`);
+    });
+
+    // 3. completion_pct vs sections status coherence
+    const sections = state.sections || [];
+    if (sections.length && state.completion_pct != null) {
+      const doneStatuses = new Set(["done", "complete", "completed", "draft-done"]);
+      const doneCount = sections.filter(s => doneStatuses.has((s.status || "").toLowerCase())).length;
+      const actualPct = Math.round(doneCount / sections.length * 100);
+      const claimed = Number(state.completion_pct);
+      if (Math.abs(actualPct - claimed) > 25) {
+        issues.push(`completion_pct ${claimed}% inconsistent with section status (${doneCount}/${sections.length} done = ${actualPct}%)`);
+      } else {
+        ok.push(`completion coherent: claimed ${claimed}%, actual ${actualPct}%`);
+      }
+    }
+
+    // 4. High-priority unresolved gaps
+    const critical = (state.gaps || []).filter(g => ["high", "critical"].includes((g.priority || "").toLowerCase()));
+    if (critical.length) {
+      issues.push(`${critical.length} high-priority gap(s) open:`);
+      critical.forEach(g => issues.push(`  - ${g.description}`));
+    } else if ((state.gaps || []).length) {
+      ok.push(`no critical gaps (${state.gaps.length} low/medium-priority noted)`);
+    }
+
+    // 5. Schema version
+    if (!state.schema_version) issues.push("state missing schema_version (old format, re-save with set/update to upgrade)");
+
+    const lines = [`## Paper Check: ${state.title || paperId}\n`];
+    lines.push(`**Issues: ${issues.length}** | OK: ${ok.length}\n`);
+    if (issues.length) {
+      lines.push(`### Issues`);
+      issues.forEach(i => lines.push(`- [!] ${i}`));
+      lines.push("");
+    }
+    if (ok.length) {
+      lines.push(`### OK`);
+      ok.forEach(o => lines.push(`- [v] ${o}`));
+      lines.push("");
+    }
+    if (!issues.length) lines.push(`All checks passed. Paper state is consistent.`);
+
+    return { content: [{ type: "text", text: lines.join("\n") }] };
   }
 
   // ── Promote Data ───────────────────────────────────────────────

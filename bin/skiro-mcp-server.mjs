@@ -951,12 +951,14 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const raw = readFileSync(fullPath, "utf8");
     const maxLines = args.max_lines || 100;
 
-    // Section filter
+    // Section filter: split on ## headings, pick the one matching
     if (args.section) {
-      const sectionRegex = new RegExp(`^## ${args.section}[\\s\\S]*?(?=\\n## |$)`, "m");
-      const match = raw.match(sectionRegex);
-      if (match) {
-        const lines = match[0].split("\n").slice(0, maxLines);
+      const esc = args.section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const headingRegex = new RegExp(`^## ${esc}\\b`);
+      const blocks = raw.split(/(?=^## )/m);
+      const block = blocks.find(b => headingRegex.test(b));
+      if (block) {
+        const lines = block.split("\n").slice(0, maxLines);
         return { content: [{ type: "text", text: `## ${relative(vaultPath, fullPath)} → ${args.section}\n\n${lines.join("\n")}` }] };
       }
       return { content: [{ type: "text", text: `Section "${args.section}" not found in ${relative(vaultPath, fullPath)}` }] };

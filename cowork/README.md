@@ -41,7 +41,8 @@ claude mcp add skiro-cowork -s user -- node ~/skiro/cowork/skiro-cowork-server.m
 | `cowork_paper_data` | Paper section data extraction | "Results 섹션 데이터 정리" |
 | `cowork_read_file` | Read actual file content | "그 데이터 파일 내용 보여줘" |
 | `cowork_scan_experiments` | Scan experiments/meetings inventory | "이 프로젝트 실험 전체 현황 파악해줘" |
-| `cowork_paper_state` | Persistent paper design state (get/set) | "논문 구조 설계 저장해줘" / "현재 논문 상태 보여줘" |
+| `cowork_paper_state` | Paper design state (list/get/set/update) | "논문 구조 설계 저장해줘" / "현재 논문 상태 보여줘" |
+| `cowork_paper_check` | Validate paper state consistency | "논문 상태 검증해줘" (set/update 후 필수) |
 
 ---
 
@@ -87,25 +88,75 @@ git commits                            ───→ cowork_project_summary
 → cowork_read_file(path="/path/to/data.csv")
 ```
 
-### Autonomous paper design (Skill 3)
+### Autonomous paper design workflow
+
+**Phase 1: 구조 설계 (첫 세션)**
 ```
-1. "이 프로젝트 실험 전체 현황 파악해줘"
-   → cowork_scan_experiments(project_path="/path/to/research")
-   (모든 실험의 meta, summary, feedback, figures, data 파악)
+"이 프로젝트로 논문 쓰고 싶어"
+  → cowork_paper_state(action="list")              # 기존 논문 있나 확인
+  → cowork_scan_experiments(project_path="...")    # 실험 전체 현황
+  → cowork_get_learnings(format="paper")           # 방법론 변경 이력
+  → Claude가 title/contributions/sections 제안
+  → 사용자 확인 후:
+  → cowork_paper_state(action="set", paper_id="walking-2026", state={...})
+  → cowork_paper_check(paper_id="walking-2026")   # 일관성 검증 (필수)
+```
 
-2. Claude가 연구 내러티브 추출 + 논문 구조 자율 설계
+**Phase 2: 섹션 작성**
+```
+"Methods 섹션 쓰자"
+  → cowork_paper_state(action="get", paper_id="walking-2026")
+  → cowork_paper_data(section="methods")           # 해당 섹션 데이터만
+  → (Code MCP) skiro_vault_read(note="...", section="...")  # 필요한 vault 섹션만
+  → Claude가 초안 작성
+  → cowork_paper_state(action="update", state={sections:[...], completion_pct: 40})
+```
 
-3. "논문 구조 저장해줘"
-   → cowork_paper_state(paper_id="walking-robot-2026", action="set", state={...})
-   (title, contributions, sections, key_figures, completion_pct, gaps 저장)
+**Phase 3: 실험 추가 시 증분 갱신**
+```
+"새 실험 2개 끝났어"
+  → cowork_scan_experiments(...)                   # 새 실험 감지
+  → cowork_paper_state(action="get", ...)          # 기존 설계 로드
+  → Claude가 영향받는 섹션만 업데이트
+  → cowork_paper_state(action="update", state={...})  # 변경분만 저장
+  → cowork_paper_check(...)                        # 재검증
+```
 
-4. 실험 추가 후: "논문 상태 업데이트해줘"
-   → cowork_scan_experiments → 새 데이터 확인
-   → cowork_paper_state(action="get") → 기존 설계 로드
-   → Claude가 영향받는 섹션만 증분 업데이트
-   → cowork_paper_state(action="set") → 저장
+**Phase 4: 미팅/출판 준비**
+```
+"논문 현재 상태 알려줘"
+  → cowork_paper_state(action="get")               # 완성도, gaps
+  → cowork_paper_check(...)                        # 실제 일관성
 
-5. "논문 완성도 알려줘"
-   → cowork_paper_state(action="get")
-   → "현재 72%. 부족: baseline 비교 실험, ablation study"
+"발표 자료 만들자"
+  → cowork_promote_data(experiment_path="...", from_tier="raw", to_tier="ppt", files=[...])
+
+"출판용 figure 선정"
+  → cowork_promote_data(from_tier="ppt", to_tier="paper", files=[...])
+```
+
+### Action reference (paper_state)
+
+| Action | Purpose | 특징 |
+|--------|---------|------|
+| `list` | 모든 저장된 논문 조회 | paper_id 불필요 |
+| `get` | 특정 논문 상태 읽기 | 포맷된 테이블로 출력 |
+| `set` | 전체 덮어쓰기 | 스키마 검증 + atomic write |
+| `update` | 부분 병합 | 기존 state 유지 + 변경분만 덮어씀 |
+
+### Schema (검증됨)
+
+```json
+{
+  "title": "string (set 시 필수)",
+  "contributions": ["array of strings"],
+  "sections": [
+    { "name": "필수", "status": "done|draft|todo|...", "key_experiments": ["exp-id"] }
+  ],
+  "key_figures": ["figure filename or path"],
+  "completion_pct": "0-100 (검증됨)",
+  "gaps": [
+    { "description": "필수", "priority": "high|medium|low", "type": "experiment|writing|..." }
+  ]
+}
 ```
