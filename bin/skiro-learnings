@@ -117,6 +117,8 @@ if lock_fd:
     try: import os; os.unlink(lockfile)
     except: pass
 PYEOF
+  # Mirror to Obsidian vault (silent no-op if vault not configured)
+  [[ -x "$(dirname "$0")/skiro-md-sync.py" ]] && python3 "$(dirname "$0")/skiro-md-sync.py" >/dev/null 2>&1 || true
 
 # ── solve ────────────────────────────────────────────────────────
 elif [[ "$CMD" == "solve" ]]; then
@@ -184,6 +186,8 @@ with open(lf, 'w') as f:
 print(f"[✓ Solved] {entry.get('problem','')[:60]}")
 print(f"    → {solution[:60]}")
 PYEOF
+  # Mirror to Obsidian vault (silent no-op if vault not configured)
+  [[ -x "$(dirname "$0")/skiro-md-sync.py" ]] && python3 "$(dirname "$0")/skiro-md-sync.py" >/dev/null 2>&1 || true
 
 # ── list ─────────────────────────────────────────────────────────
 elif [[ "$CMD" == "list" ]]; then

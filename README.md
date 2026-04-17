@@ -177,6 +177,15 @@ skiro-learnings promote 3 --auto   # 3+ repeats → CHECKLIST.md
 
 When editing code, related past errors appear automatically (by category matching).
 
+### Obsidian mirror
+
+If `--vault` is configured, every learning write is mirrored to
+`<vault>/20_Learnings/<category>/<date>-<slug>.md` with YAML frontmatter
+(Dataview-queryable). Sync runs automatically after `skiro_record_problem`,
+`skiro_record_solution`, and `skiro-learnings add|solve`. Silent no-op if no
+vault is set. See `templates/vault/skiro-obsidian-setup.md` for recommended
+plugins and Dataview queries.
+
 ---
 
 ## Skills

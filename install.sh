@@ -28,6 +28,7 @@ echo "=================="
 chmod +x "$SKIRO_DIR/bin/skiro-complexity" \
          "$SKIRO_DIR/bin/skiro-learnings" \
          "$SKIRO_DIR/bin/skiro-mcp-server.mjs" \
+         "$SKIRO_DIR/bin/skiro-md-sync.py" \
          "$SKIRO_DIR/bin/skiro-hook-complexity" \
          "$SKIRO_DIR/bin/skiro-hook-gate" \
          "$SKIRO_DIR/bin/skiro-hook-session" \

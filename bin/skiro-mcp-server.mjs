@@ -10,6 +10,7 @@ import { homedir } from "os";
 const SKIRO_BIN = process.env.SKIRO_BIN || join(homedir(), "skiro", "bin");
 const LEARNINGS  = join(SKIRO_BIN, "skiro-learnings");
 const COMPLEXITY = join(SKIRO_BIN, "skiro-complexity");
+const MDSYNC     = join(SKIRO_BIN, "skiro-md-sync.py");
 
 // Global learnings — consistent path across projects
 const GLOBAL_SKIRO = join(homedir(), ".skiro");
@@ -28,6 +29,22 @@ function getVaultPath() {
 function getLearningsFile() {
   // Override via env var for per-project learnings
   return process.env.SKIRO_LEARNINGS || join(GLOBAL_SKIRO, "learnings.jsonl");
+}
+
+// Mirror learnings.jsonl → vault markdown. Silent failure, never blocks.
+function syncLearningsToVault() {
+  if (!getVaultPath()) return;
+  if (!existsSync(MDSYNC)) return;
+  try {
+    execFileSync("python3", [MDSYNC], {
+      encoding: "utf8",
+      stdio: ["ignore", "ignore", "ignore"],
+      env: { ...process.env, SKIRO_LEARNINGS: getLearningsFile() },
+      timeout: 5000,
+    });
+  } catch {
+    // Swallow: sync failure must not break the MCP call
+  }
 }
 
 // Safe execution: avoids shell injection by passing args as array
@@ -436,6 +453,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
   if (name === "skiro_record_problem") {
     const ctx = args.context || new Date().toISOString().slice(0, 10);
     runSafe(LEARNINGS, ["add", "--problem", args.problem, "--category", args.category, "--severity", args.severity, "--context", ctx]);
+    syncLearningsToVault();
     return { content: [{ type: "text", text: `[?] Recorded: ${args.problem.slice(0, 60)}` }] };
   }
 
@@ -471,6 +489,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     if (promoteResult.includes("PROMOTE") || promoteResult.includes("추가됨")) {
       msg += `\n[CHECKLIST] ${promoteResult.split("\n").find(l => l.includes("[+]") || l.includes("추가됨")) || "updated"}`;
     }
+    syncLearningsToVault();
     return { content: [{ type: "text", text: msg }] };
   }
 
