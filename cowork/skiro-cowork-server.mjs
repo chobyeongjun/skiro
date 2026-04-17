@@ -178,7 +178,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "cowork_paper_state",
-      description: "Read or write persistent paper design state (title, contributions, sections, key_figures, completion_pct, gaps). Actions: list (enumerate all papers), get (read), set (full overwrite with validation), update (partial merge with existing). Atomic writes prevent corruption.",
+      description: `Persistent paper design state. Pick ONE action per call:
+- action="list": see all saved papers. No paper_id needed. Call at session start before asking "which paper?".
+- action="get": read one paper's current state. Call when resuming work.
+- action="set": CREATE or OVERWRITE. Requires full state object. Call for NEW papers only.
+- action="update": PARTIAL merge. Only include keys you want to change. Call after finishing a section to bump completion_pct.
+After set/update: you MUST call cowork_paper_check next. Atomic writes guarantee no corruption.`,
       inputSchema: {
         type: "object",
         properties: {
@@ -191,7 +196,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "cowork_paper_check",
-      description: "Validate paper_state consistency: (1) referenced experiments exist in project, (2) key_figures resolve to actual artifacts, (3) completion_pct matches section status, (4) unresolved high-priority gaps. Run before deciding next steps.",
+      description: `Validate paper_state consistency. MUST be called every time immediately after cowork_paper_state(action="set" or "update"). Also call before recommending next steps to the user. Checks: (1) referenced experiments exist in project/experiments/, (2) key_figures are registered artifacts, (3) completion_pct matches section status counts, (4) high-priority gaps are flagged. Output lists Issues (must fix) and OK (passed).`,
       inputSchema: {
         type: "object",
         properties: {
@@ -217,7 +222,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "cowork_paper_guide",
-      description: "Returns the 4-phase paper writing methodology (based on The AI Scientist, Nature 2026). Call at the START of any paper session to remind yourself of the correct workflow. Covers: Ideation, Experimentation, Write-up, Review — and which skiro tools to use at each phase.",
+      description: `Returns the 4-phase paper workflow (Ideation, Experimentation, Write-up, Review) with exact tool-call sequences. Call this as your FIRST tool call whenever the user's message mentions: "논문", "paper", "write-up", "Results 섹션", "미팅 자료", or opens a paper-related session. Do NOT skip — the guide prevents wrong tool ordering (e.g., calling paper_state before scan_experiments).`,
       inputSchema: {
         type: "object",
         properties: {

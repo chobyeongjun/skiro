@@ -1,56 +1,88 @@
 # skiro Harness
 
+<critical_rules>
+이 규칙들은 **모든 세션에서 예외 없이** 적용된다. "필요할 때만", "적절히" 같은 판단 여지 없음.
+
+1. **파일 생성/저장 직후**: `skiro_save_artifact` 호출. 예외 없음.
+2. **실험 종료 언급 시** ("실험 끝", "데이터 저장", "아카이브"): `skiro_archive_experiment` 호출.
+3. **vault 참조 시**: 먼저 `skiro_vault_search` → 결과 중 필요한 것만 `skiro_vault_read(section=...)`. 전체 로드 금지.
+4. **코드 수정 후**: 분석/테스트 전 `skiro_analyze_complexity` 호출 (hook이 안 한 경우).
+5. **[skiro/...] 프리픽스 수신 시**: 아래 Hook 응답 프로토콜 그대로 실행.
+</critical_rules>
+
 ## 모델 라우팅
 
-기본 세션은 **Sonnet**으로 운영. 서브에이전트 위임 시 작업 복잡도에 따라 모델 선택:
+기본 세션: **Sonnet**. 서브에이전트 위임 조건:
 
-| 작업 유형 | 모델 | 기준 |
-|-----------|------|------|
-| 파일 탐색, 검색, 조회 | **haiku** | 읽기 전용 |
-| 단순 코딩, 단일 파일 수정, 포맷팅 | **sonnet** | 로직 단순, 파일 1~2개 |
-| 복잡한 코딩, 다중 파일, 설계, 분석 | **opus** | 연쇄 변경, 아키텍처, 디버깅 |
+| 조건 | 모델 | 기준 |
+|------|------|------|
+| 파일 목록 조회, 단순 검색 | **haiku** | 읽기 전용, 결과 가공 최소 |
+| 단일 파일 수정, 포맷팅, 간단 함수 추가 | **sonnet** | 로직 변경 1~2개 파일 이내 |
+| 다중 파일 변경, 설계, 디버깅, 아키텍처 분석 | **opus** | 연쇄 변경 or 판단 필요 |
 
-서브에이전트 모델 지정 예시:
+skiro_analyze_complexity 연동 (엄격 적용):
+- score < 3 → haiku 또는 sonnet
+- score 3-6 → sonnet
+- score > 6 → opus
+
+서브에이전트 호출 예:
 ```
-Agent({ model: "opus", prompt: "..." })   // 복잡한 코딩, 설계, 분석
-Agent({ model: "sonnet", prompt: "..." }) // 단순 코딩, 단일 파일
-Agent({ model: "haiku", prompt: "..." })  // 파일 찾기, 목록 조회
+Agent({ model: "opus", prompt: "..." })
+Agent({ model: "sonnet", prompt: "..." })
+Agent({ model: "haiku", prompt: "..." })
 ```
-
-skiro_analyze_complexity 결과와 연동:
-- score < 3 → haiku (조회) 또는 sonnet (단순 코딩)
-- score 3-6 → sonnet (일반 코딩)
-- score > 6 → opus (복잡한 작업)
 
 ## Hook 응답 프로토콜
 
-`[skiro/ref]` 수신 시:
-1. 파일 INDEX 읽기 (`Read offset=0, limit=50`)
-2. INDEX의 Line = 실제 라인 번호
-3. 해당 섹션만 부분 로드 (`Read offset=<line>, limit=30`)
-**절대 reference 전체를 로드하지 않음.**
+각 프리픽스 수신 시 **지정된 동작만** 수행. 창의적 해석 금지.
 
-`[skiro/hw]` 수신 시: hardware.yaml 읽고 토크 제한/통신/클럭/센서 사양 적용.
-`[skiro/arch]` 수신 시: `skiro_map_codebase` 호출.
-`[skiro/onboard]` 수신 시: `skiro_map_codebase` 호출 + 힌트의 git 안내 전달.
-`[skiro/learn]` 수신 시: 과거 에러 기록. 같은 실수 반복하지 않도록 코드 작성 시 반드시 참고.
-`[skiro/blast]` 수신 시: 영향 범위 사용자에게 알림.
+| 프리픽스 | 해야 할 동작 |
+|---------|-------------|
+| `[skiro/ref]` | ① INDEX 읽기 (`Read offset=0, limit=50`) → ② INDEX에서 Line 번호 확인 → ③ 해당 섹션만 (`Read offset=<line>, limit=30`). 전체 파일 로드 금지. |
+| `[skiro/hw]` | `hardware.yaml` 읽어서 토크 제한/통신/클럭/센서 사양을 현재 코드에 적용. |
+| `[skiro/arch]` | `skiro_map_codebase` 호출. |
+| `[skiro/onboard]` | `skiro_map_codebase` 호출 + 힌트 내 git 안내 사용자에게 전달. |
+| `[skiro/learn]` | 힌트 내 과거 에러 내용을 현재 작성 중 코드에 반영. 같은 에러 반복 금지. |
+| `[skiro/blast]` | 영향 범위를 사용자에게 알림 (수정 전 반드시). |
 
 ## Vault (Obsidian) 연동
 
-코드 작업 중 관련 지식이 필요할 때 자동으로 vault 참조:
-- 하드웨어 관련 코드 수정 → `skiro_vault_search(tags: ["motor","sensor","can-bus"])` 등으로 spec 확인
-- 설계 결정이 필요한 상황 → `skiro_vault_search(folder: "10_Wiki/Decisions")` 로 과거 결정 참조
-- 프로젝트 컨텍스트 필요 시 → `skiro_vault_search(query: "<프로젝트명>")` 로 관련 노트 검색
-- vault_search 결과에서 필요한 노트만 `skiro_vault_read`로 부분 로드 (전체 로드 금지)
-- 실험 기록, 트러블슈팅, 설계 결정은 `skiro_vault_write`로 vault에 기록
+**판단 여지 없이 자동 실행할 때:**
+
+| 상황 | 도구 호출 |
+|------|----------|
+| 하드웨어 레지스터/통신 코드 수정 전 | `skiro_vault_search(tags=["motor","sensor","can-bus","protocol"])` 중 해당하는 것 |
+| 설계 결정이 필요한 판단 시점 | `skiro_vault_search(folder="10_Wiki/Decisions")` |
+| 프로젝트 처음 들어간 세션 | `skiro_vault_search(query="<cwd 폴더명>")` |
+| 검색 결과에서 관련 노트 발견 | `skiro_vault_read(note=..., section=...)` — 섹션만 |
+| 중요 결정, 실험 기록, 트러블슈팅 해결 | `skiro_vault_write(path=..., content=...)` |
+
+**금지**: vault 노트 전체를 한 번에 context에 로드하는 것. 반드시 `section` 파라미터 사용.
 
 ## Artifact 규칙
 
-파일을 생성/저장할 때마다 **반드시** `skiro_save_artifact` 호출.
-사용자가 파일 이동/복사를 요청하면: 실제 이동 후 `skiro_save_artifact`로 새 경로 등록.
+`Write`, `Edit`로 파일을 생성/수정한 **직후**:
+1. 해당 툴 호출 결과 확인
+2. `skiro_save_artifact(path, description, category, tags)` 호출
+
+사용자가 파일 이동/복사 요청 시:
+1. 실제 이동 실행 (`Bash mv`, `cp`)
+2. 이동 **후** `skiro_save_artifact`로 새 경로 등록
 
 ## 실험 아카이브
 
-실험이 끝나면 **반드시** `skiro_archive_experiment` 호출하여 raw 데이터 보존.
-사용자가 "실험 끝" / "데이터 저장" / "아카이브" 등을 언급하면 자동 실행.
+다음 문구 중 하나라도 사용자 메시지에 나오면 `skiro_archive_experiment` **즉시 호출**:
+- "실험 끝", "실험 완료", "데이터 저장", "아카이브", "정리"
+- "오늘 실험 마쳤"
+- 실험 로그 파일이 있는 폴더를 참조하며 "정리/저장" 류의 요청
+
+호출 파라미터:
+- `name`: 날짜-주제 형식 (예: `2026-04-16-walking-gait-test`)
+- `source_dir`: 사용자가 언급한 데이터 폴더 경로
+- `description`: 사용자 요약 한 줄
+
+## Context 유지
+
+- 긴 세션에서 context 압축이 일어나도 이 문서의 규칙은 유효하다
+- 압축 경고 수신 시: 중요한 진행 상황을 `skiro_vault_write`로 vault에 저장한 뒤 계속 진행
+- Token 걱정으로 작업을 조기 종료하지 않는다

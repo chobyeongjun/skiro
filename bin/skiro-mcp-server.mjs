@@ -387,7 +387,7 @@ DO NOT call if any CRITICAL issues remain.`,
     },
     {
       name: "skiro_vault_search",
-      description: `Search Obsidian vault notes by keyword, tags, or project name. Returns matching notes with title, tags, summary. Call when you need hardware specs, design decisions, past experiment records, or any domain knowledge while coding.`,
+      description: `Search Obsidian vault notes by keyword/tags/folder. Returns a LIST of matching notes (title, tags, summary, path) — does NOT return note content. To read content, call skiro_vault_read with a note path from the results. Call this before coding whenever: (a) editing hardware-related code, (b) a design decision is needed, (c) entering a new project.`,
       inputSchema: {
         type: "object",
         properties: {
@@ -400,7 +400,7 @@ DO NOT call if any CRITICAL issues remain.`,
     },
     {
       name: "skiro_vault_read",
-      description: `Read a specific Obsidian vault note. Call after vault_search to get full content. Also follows [[wiki-links]] to find connected notes.`,
+      description: `Read vault note content. ALWAYS pass "section" parameter to load only a specific ## section — loading whole notes wastes context. Use "max_lines" to cap output. Extracted [[wiki-links]] at the bottom let you discover connected notes.`,
       inputSchema: {
         type: "object",
         properties: {
