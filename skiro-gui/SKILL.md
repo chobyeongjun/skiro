@@ -1,3 +1,7 @@
+---
+description: "로봇 GUI/HMI 설계. 실시간 모니터링, 제어 패널, PyQt, Tkinter, RQt. 키워드: GUI, 인터페이스, 모니터링, 대시보드, 플롯, PyQt, tkinter, 슬라이더, 버튼, 실시간 그래프"
+---
+
 # skiro-gui — SKILL.md core
 # v0.5 MS4 | ~360 tok
 

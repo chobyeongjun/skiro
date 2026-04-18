@@ -21,7 +21,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-echo "skiro install v4.0"
+echo "skiro install v5.0"
 echo "=================="
 
 # 1. 실행 권한
@@ -189,14 +189,35 @@ with open("$SETTINGS", "w") as f:
 print("created new settings.json")
 PYEOF
 fi
-echo "[5/6] hooks configured in ~/.claude/settings.json"
+echo "[5/7] hooks configured in ~/.claude/settings.json"
 
-# 5. MCP 등록
+# 6. Skills 설치 (symlink to ~/.claude/skills/)
+SKILLS_DIR="$HOME/.claude/skills"
+mkdir -p "$SKILLS_DIR"
+
+# Root skill (auto-dispatcher)
+rm -rf "$SKILLS_DIR/skiro"
+ln -sf "$SKIRO_DIR" "$SKILLS_DIR/skiro"
+
+# Sub-skills
+for skill_dir in "$SKIRO_DIR"/skiro-*/; do
+    skill_name="$(basename "$skill_dir")"
+    # Only install dirs that contain SKILL.md
+    if [[ -f "$skill_dir/SKILL.md" ]]; then
+        rm -rf "$SKILLS_DIR/$skill_name"
+        ln -sf "$skill_dir" "$SKILLS_DIR/$skill_name"
+    fi
+done
+
+SKILL_COUNT=$(ls -d "$SKILLS_DIR"/skiro* 2>/dev/null | wc -l)
+echo "[6/7] $SKILL_COUNT skills installed to ~/.claude/skills/"
+
+# 6. MCP 등록
 claude mcp remove skiro 2>/dev/null || true
 claude mcp add skiro -s user -- node "$SKIRO_DIR/bin/skiro-mcp-server.mjs"
-echo "[5/6] MCP server registered"
+echo "[6/7] MCP server registered"
 
-# 6. 프로젝트 CLAUDE.md 설치 (선택)
+# 7. 프로젝트 CLAUDE.md 설치 (선택)
 if [[ -n "$PROJECT_DIR" ]]; then
     if [[ -d "$PROJECT_DIR" ]]; then
         CLAUDE_MD="$PROJECT_DIR/CLAUDE.md"
@@ -205,19 +226,19 @@ if [[ -n "$PROJECT_DIR" ]]; then
             if ! grep -q "skiro Harness" "$CLAUDE_MD" 2>/dev/null; then
                 echo "" >> "$CLAUDE_MD"
                 cat "$SKIRO_DIR/templates/CLAUDE.md.template" >> "$CLAUDE_MD"
-                echo "[6/6] skiro section appended to $CLAUDE_MD"
+                echo "[7/7] skiro section appended to $CLAUDE_MD"
             else
-                echo "[6/6] skiro section already in $CLAUDE_MD (skipped)"
+                echo "[7/7] skiro section already in $CLAUDE_MD (skipped)"
             fi
         else
             cp "$SKIRO_DIR/templates/CLAUDE.md.template" "$CLAUDE_MD"
-            echo "[6/6] CLAUDE.md created at $CLAUDE_MD"
+            echo "[7/7] CLAUDE.md created at $CLAUDE_MD"
         fi
     else
-        echo "[6/6] WARNING: project dir not found: $PROJECT_DIR"
+        echo "[7/7] WARNING: project dir not found: $PROJECT_DIR"
     fi
 else
-    echo "[6/6] No --project specified (skipped CLAUDE.md setup)"
+    echo "[7/7] No --project specified (skipped CLAUDE.md setup)"
     echo "  To add to a project: bash install.sh --project /path/to/your/robot/project"
 fi
 
@@ -227,4 +248,5 @@ echo ""
 echo "Verify:"
 echo "  claude mcp list | grep skiro"
 echo "  cat ~/.skiro/config.json"
+echo "  ls ~/.claude/skills/ | grep skiro"
 echo "  skiro-complexity <your_file.c> --json"

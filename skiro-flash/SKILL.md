@@ -1,3 +1,7 @@
+---
+description: "펌웨어 빌드/플래시. STM32, Teensy, Jetson, OpenOCD, esptool. safety gate 필수. 키워드: 플래시, flash, 업로드, firmware, 펌웨어, 굽기, CubeIDE, bin, ST-Link"
+---
+
 # skiro-flash — SKILL.md
 # v0.5 MS4 | 단일 파일 유지 (모듈화 불필요) | ~1684 tok 수준
 

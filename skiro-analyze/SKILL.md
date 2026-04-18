@@ -1,3 +1,7 @@
+---
+description: "실험 결과 분석. Bode, 주파수 응답, RMSE, 통계 검정, ILC 수렴 분석. 키워드: 분석, analyze, Bode, 대역폭, RMSE, 통계, t-test, 수렴, 임피던스, 대칭"
+---
+
 # skiro-analyze — SKILL.md core
 # v0.6 | ~360 tok
 

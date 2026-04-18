@@ -1,3 +1,7 @@
+---
+description: "코드/실험 안전 분석. 토크 제한, watchdog, e-stop, ISR 검증. safety gate 생성. 키워드: 안전, 검토, 확인해줘, 리뷰, flash, 모터, CAN, ISR, 인터럽트, AK60"
+---
+
 # skiro-safety — SKILL.md core
 # v0.5 MS4 | 모듈화 버전 | ~580 tok
 

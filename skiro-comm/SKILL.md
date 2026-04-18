@@ -1,3 +1,7 @@
+---
+description: "통신 프로토콜 설계/디버깅. CAN, UART, SPI, I2C, ROS2 DDS. 키워드: CAN, 통신, 프로토콜, UART, 시리얼, 패킷, SPI, I2C, ROS2, DDS, baudrate"
+---
+
 # skiro-comm — SKILL.md core
 # v0.5 MS4 | ~400 tok
 

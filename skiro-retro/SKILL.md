@@ -1,3 +1,7 @@
+---
+description: "세션/실험 회고. 교훈 정리, learnings JSONL 기록, 논문 paper packet 생성. 키워드: 회고, retro, 정리, 마무리, 오늘 결과, 배운 것, 다음에는, 실험 끝"
+---
+
 # skiro-retro — SKILL.md core
 # v0.5 MS4 | ~420 tok
 

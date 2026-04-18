@@ -1,3 +1,7 @@
+---
+description: "하드웨어 테스트. 센서/모터/통신 확인, hardware.yaml 자동 생성. safety gate 필수. 키워드: 테스트, hwtest, 확인, 동작 확인, 연결 확인, 핑, 센서 확인, 모터 확인"
+---
+
 # skiro-hwtest — SKILL.md core
 # v0.5 MS4 | ~380 tok
 

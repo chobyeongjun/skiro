@@ -1,3 +1,7 @@
+---
+description: "실험/개발 계획 수립. 목표, 위험 분석, 프로토콜 구조화, current-experiment.json 생성. 키워드: 계획, plan, 오늘 뭐 할까, 실험 설계, 어떻게 접근, 순서 잡아줘"
+---
+
 # skiro-plan — SKILL.md core
 # v0.5 MS4 | ~480 tok
 
