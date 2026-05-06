@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""lessons-add: skiro-learnings에서 research-vault/20_Meta/Lessons.md로 즉시 미러링"""
+
+import sys
+import re
+from datetime import date
+from pathlib import Path
+
+LESSONS = Path.home() / "research-vault/20_Meta/Lessons.md"
+
+WEIGHT_MAP = {
+    "CRITICAL": "[CRITICAL]",
+    "WARNING":  "[WARNING]",
+    "MINOR":    "[MINOR]",
+    "REWARD":   "[HIGH]",
+    "HIGH":     "[HIGH]",
+    "MED":      "[MED]",
+    "LOW":      "[LOW]",
+}
+
+NOISE = [
+    "<ide_opened", "<task-notification", "files changed", "insertions(+)",
+    "chobb0@", "hobb0@", "$ python3", "$ ln -s", "Export complete",
+    "PYEOF", "http", "Warning:", "Traceback", "pip install",
+    "Using cached", "Checking dependencies",
+]
+
+
+def is_noise(text):
+    return any(n in text for n in NOISE) or len(text) < 10
+
+
+def find_section_end(lines, header):
+    """header 섹션의 마지막 항목 index 반환 (다음 ## 이전)"""
+    in_section = False
+    last_entry = -1
+    for i, line in enumerate(lines):
+        if line.strip() == header:
+            in_section = True
+            continue
+        if in_section:
+            if line.startswith("## "):
+                break
+            if line.startswith("- "):
+                last_entry = i
+    return last_entry
+
+
+def append_to_section(content, header, entry):
+    lines = content.split("\n")
+    idx = find_section_end(lines, header)
+    if idx == -1:
+        # 섹션 없으면 파일 끝에 추가
+        lines.append(entry)
+    else:
+        lines.insert(idx + 1, entry)
+    return "\n".join(lines)
+
+
+def main():
+    args = sys.argv[1:]
+    kv = {}
+    i = 0
+    while i < len(args):
+        if args[i].startswith("--") and i + 1 < len(args):
+            kv[args[i][2:]] = args[i + 1]
+            i += 2
+        else:
+            i += 1
+
+    entry_type = kv.get("type", "miss")   # miss | win
+    severity   = kv.get("severity", "WARNING").upper()
+    text       = kv.get("text", kv.get("problem", kv.get("solution", "")))
+    context    = kv.get("context", "")
+
+    if not text or is_noise(text):
+        sys.exit(0)
+
+    if not LESSONS.exists():
+        sys.exit(0)
+
+    weight = WEIGHT_MAP.get(severity, f"[{severity}]")
+    today  = date.today().strftime("%Y-%m-%d")
+    ctx    = context.split()[0] if context else "auto"
+
+    if entry_type == "win":
+        section = "## Wins (재사용할 패턴)"
+        entry   = f"- `{today}` | {ctx} | {weight} {text}"
+    else:
+        section = "## Misses (교정 규칙)"
+        entry   = f"- `{today}` | {ctx} | {weight} {text}"
+
+    content = LESSONS.read_text()
+
+    # 이미 동일 텍스트 있으면 스킵 (중복 방지)
+    if text[:40] in content:
+        sys.exit(0)
+
+    new_content = append_to_section(content, section, entry)
+    LESSONS.write_text(new_content)
+    print(f"[lessons-add] {weight} → Lessons.md")
+
+
+if __name__ == "__main__":
+    main()
